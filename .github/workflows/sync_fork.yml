@@ -1,0 +1,45 @@
+name: Sync Fork
+run-name: Sync Fork
+on:
+  schedule:
+    - cron:  '58 23 * * *' # run every day - two minutes to midnight
+  workflow_dispatch: # to enable manual runs of the workflow
+
+jobs:
+  Get-Timestamp:
+    runs-on: ubuntu-latest
+    steps:
+      - run: date
+
+  Sync-With-Upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "This job is now running on a ${{ runner.os }} server hosted by GitHub"
+      - run: echo "Running on branch ${{ github.ref }}, repository ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: echo "The ${{ github.repository }} repository has been cloned to the runner."
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+      - name: Sync repository with upstream
+        run: |
+          cd ${{ github.workspace }}
+          git config --global user.email "jcarmona@eso.org"
+          git config --global user.name "Nightly Sync"
+          git remote add upstream https://github.com/astropy/astroquery.git
+          git remote -v
+          git fetch upstream main
+          echo "--- upstream log: "
+          git log upstream/main --oneline -10
+          echo "--- current branch log before merge: "
+          git log --oneline -10
+          git merge upstream/main
+          echo "--- current branch log after merge: "
+          git log --oneline -10
+          echo "--- push force with lease"
+          git push --force-with-lease
+      - run: echo "The job finished with status ${{ job.status }}."
