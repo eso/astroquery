@@ -35,7 +35,7 @@ mast
 ^^^^
 
 - Deprecated the ``product`` parameter in the ``Tesscut.get_sectors``, ``Tesscut.get_cutouts``, and ``Tesscut.download_cutouts`` methods.
-  Support for TESS Image Calibration (TICA) high-level science products has been removed; only Science Processing Operations Center (SPOC) 
+  Support for TESS Image Calibration (TICA) high-level science products has been removed; only Science Processing Operations Center (SPOC)
   products are now supported. [#3391]
 
 Service fixes and enhancements
@@ -100,6 +100,9 @@ ipac.irsa
   in to return all TAP tables, including non-spatial and metadata ones,
   too. [#3334]
 
+- The "filter" kwarg of ``list_catalogs`` is now looking for string matches
+  either in catalog names and short descriptions. [#3415]
+
 SIMBAD
 ^^^^^^
 
@@ -147,6 +150,8 @@ mast
 
 - Fix bug where duplicate columns from server responses cause an error when converting to an `~astropy.table.Table`. [#3400]
 
+- Support for resolving multiple object names at once with `~astroquery.mast.MastClass.resolve_object`, including automatic batching
+  into groups of up to 30 names per request to the name translation service. [#3398]
 
 Infrastructure, Utility and Other Changes and Additions
 -------------------------------------------------------
