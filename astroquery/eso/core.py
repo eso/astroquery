@@ -37,8 +37,10 @@ from ..exceptions import RemoteServiceError, LoginError, \
 from ..query import QueryWithLogin
 from ..utils import schema
 from .utils import _UserParams, raise_if_coords_not_valid, _reorder_columns, \
-    _raise_if_has_deprecated_keys, _build_adql_string, \
-    DEFAULT_LEAD_COLS_PHASE3, DEFAULT_LEAD_COLS_RAW
+    _raise_if_has_deprecated_keys, _build_adql_string, _split_str_as_list_of_str, \
+    _normalize_catalogue_list, _build_catalogue_metadata_query, \
+    _build_catalogue_columns_query, _build_catalogue_table_query, \
+    _set_last_version, DEFAULT_LEAD_COLS_PHASE3, DEFAULT_LEAD_COLS_RAW
 
 
 __all__ = ['Eso', 'EsoClass']
@@ -1051,6 +1053,395 @@ class EsoClass(QueryWithLogin):
                                   print_help=help,
                                   authenticated=authenticated)
         return self._query_on_allowed_values(user_params)
+
+    def _tap_catalogues(self, authenticated: bool = False) -> TAPService:
+        """
+        Return a TAPService connected to the catalogue TAP endpoint.
+        """
+        if authenticated and not self.authenticated():
+            raise LoginError(
+                "It seems you are trying to issue an authenticated query without "
+                "being authenticated. Possible solutions:\n"
+                "1. Set the query function argument authenticated=False"
+                " OR\n"
+                "2. Login with your username and password: "
+                "<eso_class_instance>.login(username=<your_username>"
+            )
+
+        log.debug(f"Querying from {conf.tap_cat_url}")
+        if authenticated:
+            h = self._get_auth_header()
+            self._session.headers = {**self._session.headers, **h}
+            return TAPService(conf.tap_cat_url, session=self._session)
+        return TAPService(conf.tap_cat_url)
+
+    def _run_catalogue_tap_query(self,
+                                 query: str, *,
+                                 maxrec: Optional[int] = None,
+                                 type_of_query: str = "sync",
+                                 authenticated: bool = False) -> Table:
+        """
+        Execute a TAP query against the catalogue service.
+
+        Parameters
+        ----------
+        query : str
+            The ADQL query string to be executed.
+        maxrec : int, optional
+            The maximum number of records to retrieve. If not provided, the
+            current ROW_LIMIT value is used.
+        type_of_query : str, optional
+            The TAP query mode, either 'sync' or 'async'. Default is 'sync'.
+        authenticated : bool, optional
+            If ``True``, performs the query with an authenticated session.
+
+        Returns
+        -------
+        astropy.table.Table
+            Table with the query results.
+        """
+        type_of_query = type_of_query.lower()
+        if type_of_query not in ("sync", "async"):
+            raise ValueError("`type_of_query` must be 'sync' or 'async'.")
+
+        row_limit = maxrec if maxrec is not None else self.ROW_LIMIT
+        if row_limit is None or row_limit < 1:
+            row_limit = sys.maxsize
+        row_limit_plus_one = row_limit if row_limit >= sys.maxsize else row_limit + 1
+
+        def message(query_str):
+            return (
+                "Error executing the following catalogue query:\n\n"
+                f"{query_str}\n\n"
+            )
+
+        table_with_extra = Table()
+        tap_service = self._tap_catalogues(authenticated=authenticated)
+        tmp_limit = self.ROW_LIMIT
+        try:
+            self.ROW_LIMIT = row_limit
+            if type_of_query == "sync":
+                table_with_extra = tap_service.search(
+                    query=query, maxrec=row_limit_plus_one
+                ).to_table()
+            else:
+                tap_job = tap_service.submit_job(query=query, maxrec=row_limit_plus_one)
+                tap_job.run()
+                tap_job.wait(phases=["EXECUTING", "COMPLETED", "ERROR", "ABORTED"], timeout=10.0)
+                tap_job.raise_if_error()
+                table_with_extra = tap_job.fetch_result().to_table()
+            self._maybe_warn_about_table_length(table_with_extra, row_limit_plus_one)
+        except DALQueryError:
+            log.error(message(query))
+        except DALFormatError as e:
+            raise DALFormatError(message(query) + f"cause: {e.cause}") from e
+        except Exception as e:
+            raise type(e)(f"{e}\n" + message(query)) from e
+        finally:
+            self.ROW_LIMIT = tmp_limit
+
+        return table_with_extra[:row_limit]
+
+    def list_catalogues(self, all_versions: bool = False,
+                        collections: Union[str, List[str]] = None,
+                        tables: Union[str, List[str]] = None,
+                        verbose: bool = False) -> Table:
+        """
+        Retrieve metadata for ESO catalogues.
+
+        Parameters
+        ----------
+        all_versions : bool, optional
+            If ``True``, includes all versions of the catalogues. Default is ``False``.
+        collections : str or list of str, optional
+            Catalogue collection name(s) to filter by.
+        tables : str or list of str, optional
+            Catalogue table name(s) to filter by.
+        verbose : bool, optional
+            If ``True``, logs the generated ADQL query.
+
+        Returns
+        -------
+        astropy.table.Table
+            Metadata table for the selected catalogues. The table includes
+            ``table_RA``, ``table_Dec``, and ``table_ID`` columns when available.
+
+        Raises
+        ------
+        TypeError
+            If ``collections`` or ``tables`` are not strings or lists of strings.
+        DALFormatError
+            If the TAP response is malformed.
+        """
+        clean_collections = _normalize_catalogue_list(collections, "collections")
+        clean_tables = _normalize_catalogue_list(tables, "tables")
+        query = _build_catalogue_metadata_query(all_versions, clean_collections, clean_tables)
+        if verbose:
+            log.info("Query:\n%s", query)
+        table = self._run_catalogue_tap_query(query, maxrec=self.ROW_LIMIT, type_of_query="sync")
+        if len(table) == 0:
+            return table
+
+        table.sort(["collection", "table_name", "version"])
+        _set_last_version(table, update=True)
+
+        ra_id = [None] * len(table)
+        dec_id = [None] * len(table)
+        source_id = [None] * len(table)
+        columns_table = self.list_catalogues_info(
+            tables=table["table_name"].tolist(), verbose=False
+        )
+        if isinstance(columns_table, Table) and len(columns_table) > 0:
+            if {"table_name", "column_name", "ucd"}.issubset(columns_table.colnames):
+                lookup = {
+                    table_name: {"id": [], "ra": [], "dec": []}
+                    for table_name in table["table_name"]
+                }
+                for row in columns_table:
+                    table_name = row["table_name"]
+                    ucd = row["ucd"]
+                    if table_name not in lookup:
+                        continue
+                    if ucd == "meta.id;meta.main":
+                        lookup[table_name]["id"].append(row["column_name"])
+                    elif ucd == "pos.eq.ra;meta.main":
+                        lookup[table_name]["ra"].append(row["column_name"])
+                    elif ucd == "pos.eq.dec;meta.main":
+                        lookup[table_name]["dec"].append(row["column_name"])
+                for idx, table_name in enumerate(table["table_name"]):
+                    entry = lookup.get(table_name, {})
+                    ids = entry.get("id", [])
+                    ras = entry.get("ra", [])
+                    decs = entry.get("dec", [])
+                    source_id[idx] = ids[0] if len(ids) == 1 else None
+                    ra_id[idx] = ras[0] if len(ras) == 1 else None
+                    dec_id[idx] = decs[0] if len(decs) == 1 else None
+
+        table.add_column(
+            Column(
+                data=ra_id,
+                name="table_RA",
+                dtype=str,
+                description="Identifier for RA in the catalog",
+            )
+        )
+        table.add_column(
+            Column(
+                data=dec_id,
+                name="table_Dec",
+                dtype=str,
+                description="Identifier for Dec in the catalog",
+            )
+        )
+        table.add_column(
+            Column(
+                data=source_id,
+                name="table_ID",
+                dtype=str,
+                description="Identifier for Source ID in the catalog",
+            )
+        )
+        return table
+
+    def list_catalogues_info(self,
+                             collections: Union[str, List[str]] = None,
+                             tables: Union[str, List[str]] = None,
+                             verbose: bool = False) -> Table:
+        """
+        Retrieve column metadata for ESO catalogues.
+
+        Parameters
+        ----------
+        collections : str or list of str, optional
+            Catalogue collection name(s) to filter by.
+        tables : str or list of str, optional
+            Catalogue table name(s) to filter by.
+        verbose : bool, optional
+            If ``True``, logs the generated ADQL query.
+
+        Returns
+        -------
+        astropy.table.Table
+            Table of column metadata (name, UCD, datatype, description, unit).
+
+        Raises
+        ------
+        TypeError
+            If ``collections`` or ``tables`` are not strings or lists of strings.
+        DALFormatError
+            If the TAP response is malformed.
+        """
+        clean_collections = _normalize_catalogue_list(collections, "collections")
+        clean_tables = _normalize_catalogue_list(tables, "tables")
+        query = _build_catalogue_columns_query(clean_collections, clean_tables)
+        if verbose:
+            log.info("Query:\n%s", query)
+        return self._run_catalogue_tap_query(query, maxrec=self.ROW_LIMIT, type_of_query="sync")
+
+    def query_catalogues(self,
+                         collections: Union[List[str], str] = None,
+                         tables: Union[List[str], str] = None,
+                         columns: Union[List[str], str] = None,
+                         type_of_query: str = "sync",
+                         all_versions: bool = False,
+                         maxrec: Optional[int] = None,
+                         verbose: bool = False,
+                         conditions_dict: Optional[Dict[str, str]] = None,
+                         top: Optional[int] = None,
+                         order_by: Optional[str] = None,
+                         order: str = "ascending") -> Union[Table, List[Table], None]:
+        """
+        Query ESO catalogues with collection/table filters and custom constraints.
+
+        Parameters
+        ----------
+        collections : str or list of str, optional
+            Catalogue collection name(s) to query.
+        tables : str or list of str, optional
+            Catalogue table name(s) to query.
+        columns : str or list of str, optional
+            Column name(s) to retrieve. If not provided, selects all columns.
+        type_of_query : str, optional
+            The TAP query mode, either 'sync' or 'async'. Default is 'sync'.
+        all_versions : bool, optional
+            If ``True``, includes obsolete catalogue versions when expanding collections.
+            Default is ``False``.
+        maxrec : int, optional
+            Maximum number of rows to retrieve per catalogue. Defaults to ROW_LIMIT.
+        verbose : bool, optional
+            If ``True``, logs the generated ADQL query for each catalogue.
+        conditions_dict : dict, optional
+            Additional query constraints in ADQL syntax, e.g.,
+            ``{"mag": "< 20", "flag": "= 0"}``.
+        top : int, optional
+            When set, selects only the top N rows.
+        order_by : str, optional
+            Column name to order by.
+        order : str, optional
+            Sort order: 'ascending' or 'descending'. Default is 'ascending'.
+
+        Returns
+        -------
+        astropy.table.Table or list of astropy.table.Table or None
+            If only one catalogue is queried, returns a single table. Otherwise,
+            returns a list of tables. Returns ``None`` if no catalogues match.
+
+        Raises
+        ------
+        TypeError
+            If ``columns`` or ``conditions_dict`` types are invalid.
+        ValueError
+            If ``type_of_query`` or ``order`` are invalid.
+        DALFormatError
+            If the TAP response is malformed.
+        """
+        clean_collections = _normalize_catalogue_list(collections, "collections")
+        clean_tables = _normalize_catalogue_list(tables, "tables")
+
+        table_names = list(clean_tables or [])
+        if clean_collections:
+            collections_table = self.list_catalogues(
+                all_versions=all_versions,
+                collections=clean_collections,
+                tables=None,
+                verbose=False,
+            )
+            if isinstance(collections_table, Table) and len(collections_table) > 0:
+                table_names += collections_table["table_name"].tolist()
+
+        # De-duplicate tables while preserving order.
+        table_names = list(dict.fromkeys(table_names))
+        if not table_names:
+            return None
+
+        if conditions_dict is not None and not isinstance(conditions_dict, dict):
+            raise TypeError("`conditions_dict` must be a dictionary.")
+
+        requested_columns = None
+        if columns is not None:
+            if isinstance(columns, str):
+                requested_columns = _split_str_as_list_of_str(columns)
+            else:
+                if hasattr(columns, "tolist"):
+                    columns = columns.tolist()
+                if not isinstance(columns, (list, tuple, set)):
+                    raise TypeError("`columns` must be a string or list of strings.")
+                requested_columns = []
+                for col in columns:
+                    if not isinstance(col, str):
+                        raise TypeError("All `columns` entries must be strings.")
+                    requested_columns.append(col.strip())
+
+        columns_table = None
+        if requested_columns is not None:
+            columns_table = self.list_catalogues_info(tables=table_names, verbose=False)
+
+        column_lookup = {}
+        if isinstance(columns_table, Table) and len(columns_table) > 0:
+            if {"table_name", "column_name"}.issubset(columns_table.colnames):
+                for row in columns_table:
+                    column_lookup.setdefault(row["table_name"], set()).add(row["column_name"])
+
+        totals_lookup = {}
+        totals_table = self.list_catalogues(
+            all_versions=all_versions,
+            collections=None,
+            tables=table_names,
+            verbose=False,
+        )
+        if isinstance(totals_table, Table) and "number_rows" in totals_table.colnames:
+            for row in totals_table:
+                try:
+                    totals_lookup[row["table_name"]] = int(row["number_rows"])
+                except Exception:
+                    totals_lookup[row["table_name"]] = None
+
+        results = []
+        for table_name in table_names:
+            valid_columns = requested_columns
+            if requested_columns is not None and column_lookup:
+                valid_columns = [
+                    col for col in requested_columns
+                    if col in column_lookup.get(table_name, set())
+                ]
+
+            query = _build_catalogue_table_query(
+                table_name,
+                valid_columns,
+                conditions_dict,
+                order_by,
+                order,
+                top,
+            )
+            if verbose:
+                log.info("Query:\n%s", query)
+
+            effective_maxrec = maxrec if maxrec is not None else self.ROW_LIMIT
+            result_table = self._run_catalogue_tap_query(
+                query,
+                maxrec=effective_maxrec,
+                type_of_query=type_of_query,
+            )
+            results.append(result_table)
+
+            total_rows = totals_lookup.get(table_name)
+            if total_rows is not None:
+                log.info(
+                    "The query to %s returned %d entries out of %d (with a limit set to maxrec=%s)",
+                    table_name,
+                    len(result_table),
+                    total_rows,
+                    effective_maxrec,
+                )
+            else:
+                log.info(
+                    "The query to %s returned %d entries (with a limit set to maxrec=%s)",
+                    table_name,
+                    len(result_table),
+                    effective_maxrec,
+                )
+
+        return results[0] if len(results) == 1 else results
 
 
 Eso = EsoClass()

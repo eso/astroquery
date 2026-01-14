@@ -3,7 +3,9 @@ utils.py: helper functions for the astropy.eso module
 """
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
-from astropy.table import Table
+
+import numpy as np
+from astropy.table import Column, Table
 
 DEFAULT_LEAD_COLS_RAW = ['object', 'ra', 'dec', 'dp_id', 'date_obs', 'prog_id']
 DEFAULT_LEAD_COLS_PHASE3 = ['target_name', 's_ra', 's_dec', 'dp_id', 'date_obs', 'proposal_id']
@@ -194,3 +196,193 @@ def _build_adql_string(user_params: _UserParams) -> str:
         query_string = "select " + query_string
 
     return query_string.strip()
+
+
+def _normalize_catalogue_list(values: Union[str, List[str], None],
+                              label: str) -> Optional[List[str]]:
+    """
+    Normalize a catalogue filter to a list of strings.
+
+    Parameters
+    ----------
+    values : str, list of str, or None
+        Filter values to normalize.
+    label : str
+        Label used in error messages.
+
+    Returns
+    -------
+    list of str or None
+        Normalized list of strings. Returns ``None`` for empty inputs.
+    """
+    if values is None:
+        return None
+    if isinstance(values, str):
+        cleaned = values.strip()
+        return [cleaned] if cleaned else None
+    if hasattr(values, "tolist"):
+        values = values.tolist()
+    if not isinstance(values, (list, tuple, set)):
+        raise TypeError(f"`{label}` must be a string or list of strings.")
+    normalized = []
+    for value in values:
+        if not isinstance(value, str):
+            raise TypeError(f"All `{label}` entries must be strings.")
+        cleaned = value.strip()
+        if cleaned:
+            normalized.append(cleaned)
+    return normalized or None
+
+
+def _catalogue_like_conditions(column_name: str,
+                               values: Optional[List[str]]) -> Optional[str]:
+    """
+    Build a LIKE clause joined by OR for catalogue filters.
+    """
+    if not values:
+        return None
+    return " OR ".join(f"{column_name} LIKE '{value}'" for value in values)
+
+
+def _build_catalogue_metadata_query(all_versions: bool,
+                                    collections: Optional[List[str]],
+                                    tables: Optional[List[str]]) -> str:
+    """
+    Build the ADQL query for catalogue metadata.
+    """
+    query = """
+        SELECT
+            collection, title, version, table_name, filter, instrument, telescope, publication_date,
+            ref.description AS description, number_rows, number_columns, rel_descr_url, acknowledgment,
+            cat_id, mjd_obs, mjd_end, skysqdeg, bibliography, document_id, kc.from_column AS from_column,
+            k.target_table AS target_table, kc.target_column AS target_column, schema_name
+        FROM TAP_SCHEMA.tables AS ref
+        LEFT OUTER JOIN TAP_SCHEMA.keys AS k ON ref.table_name = k.from_table
+        LEFT OUTER JOIN TAP_SCHEMA.key_columns AS kc ON k.key_id = kc.key_id
+        WHERE schema_name = 'safcat'
+    """
+    if not all_versions:
+        query += """
+        AND cat_id IN (
+            SELECT t1.cat_id
+            FROM TAP_SCHEMA.tables t1
+            LEFT JOIN TAP_SCHEMA.tables t2 ON (t1.title = t2.title AND t1.version < t2.version)
+            WHERE t2.title IS NULL
+        )
+        """
+    collections_clause = _catalogue_like_conditions("collection", collections)
+    if collections_clause:
+        query += f" AND ({collections_clause})"
+    tables_clause = _catalogue_like_conditions("table_name", tables)
+    if tables_clause:
+        query += f" AND ({tables_clause})"
+    return query
+
+
+def _build_catalogue_columns_query(collections: Optional[List[str]],
+                                   tables: Optional[List[str]]) -> str:
+    """
+    Build the ADQL query for catalogue column metadata.
+    """
+    collections = collections or ["%"]
+    tables = tables or ["%"]
+    collections_clause = _catalogue_like_conditions("collection", collections)
+    tables_clause = _catalogue_like_conditions("table_name", tables)
+    return f"""
+        SELECT table_name, column_name, ucd, datatype, description, unit
+        FROM TAP_SCHEMA.columns
+        WHERE table_name IN (
+            SELECT table_name FROM TAP_SCHEMA.tables WHERE {collections_clause}
+        )
+        AND ({tables_clause})
+    """
+
+
+def _build_catalogue_table_query(table_name: str,
+                                 columns: Union[List[str], str, None],
+                                 conditions_dict: Optional[Dict[str, str]],
+                                 order_by: Optional[str],
+                                 order: str,
+                                 top: Optional[int]) -> str:
+    """
+    Build the ADQL query to retrieve rows from a catalogue table.
+    """
+    if columns is None:
+        column_list = []
+    elif isinstance(columns, str):
+        column_list = _split_str_as_list_of_str(columns)
+    else:
+        if hasattr(columns, "tolist"):
+            columns = columns.tolist()
+        if not isinstance(columns, (list, tuple, set)):
+            raise TypeError("`columns` must be a string or list of strings.")
+        column_list = []
+        for col in columns:
+            if not isinstance(col, str):
+                raise TypeError("All `columns` entries must be strings.")
+            column_list.append(col.strip())
+    select_columns = ", ".join(column_list) if column_list else "*"
+    select_clause = f"SELECT {'TOP ' + str(top) + ' ' if top else ''}{select_columns}"
+
+    conditions_clause = ""
+    if conditions_dict:
+        if not isinstance(conditions_dict, dict):
+            raise TypeError("`conditions_dict` must be a dictionary.")
+        conditions = []
+        for key, value in conditions_dict.items():
+            if value is None:
+                continue
+            conditions.append(f"{key} {_adql_sanitize_op_val(value)}")
+        if conditions:
+            conditions_clause = " WHERE " + " AND ".join(conditions)
+
+    order_clause = ""
+    if order_by:
+        order_token = (order or "ascending").strip().lower()
+        if order_token in ("ascending", "asc", ""):
+            direction = "asc"
+        elif order_token in ("descending", "desc"):
+            direction = "desc"
+        else:
+            raise ValueError("`order` must be 'ascending' or 'descending'.")
+        order_clause = f" ORDER BY {order_by} {direction}"
+
+    return f"{select_clause} FROM {table_name}{conditions_clause}{order_clause}"
+
+
+def _set_last_version(table: Table, update: bool = True) -> None:
+    """
+    Append or update a ``last_version`` column based on title/version metadata.
+    """
+    required_cols = ("title", "version")
+    if any(col not in table.colnames for col in required_cols):
+        return
+    if "last_version" in table.colnames and not update:
+        return
+    if "last_version" in table.colnames:
+        table.remove_column("last_version")
+
+    titles = table["title"]
+    versions = table["version"]
+    try:
+        versions_numeric = versions.astype(float)
+        use_numeric = True
+    except Exception:
+        versions_numeric = versions
+        use_numeric = False
+
+    last_version_flags = np.zeros(len(table), dtype=bool)
+    for title in np.unique(titles):
+        mask = titles == title
+        version_values = versions_numeric[mask]
+        latest = np.nanmax(version_values) if use_numeric else max(version_values)
+        last_version_flags[mask] = (version_values == latest)
+
+    table.add_column(
+        Column(
+            data=last_version_flags,
+            name="last_version",
+            dtype=bool,
+            description="True if this is the latest version of the catalogue",
+        )
+    )

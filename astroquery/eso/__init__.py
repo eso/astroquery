@@ -19,7 +19,9 @@ class Conf(_config.ConfigNamespace):
     tap_url = _config.ConfigItem(
         "https://archive.eso.org/tap_obs",
         'URL for TAP queries.')
-
+    tap_cat_url = _config.ConfigItem(
+        "https://archive.eso.org/tap_cat",
+        'URL for TAP catalogue queries.')
 
 conf = Conf()
 
