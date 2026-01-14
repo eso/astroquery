@@ -37,7 +37,7 @@ from ..exceptions import RemoteServiceError, LoginError, \
 from ..query import QueryWithLogin
 from ..utils import schema
 from .utils import _UserParams, raise_if_coords_not_valid, _reorder_columns, \
-    _raise_if_has_deprecated_keys, _build_adql_string, \
+    _raise_if_has_deprecated_keys, _build_adql_string, _normalize_product_ids, \
     DEFAULT_LEAD_COLS_PHASE3, DEFAULT_LEAD_COLS_RAW
 
 
@@ -69,6 +69,7 @@ class _AuthInfo:
 class _EsoNames:
     raw_table = "dbo.raw"
     phase3_table = "ivoa.ObsCore"
+    phase3_product_files_table = "phase3v2.product_files"
     raw_instruments_column = "instrument"
     phase3_surveys_column = "obs_collection"
 
@@ -676,6 +677,153 @@ class EsoClass(QueryWithLogin):
         t = self._query_on_allowed_values(user_params)
         t = _reorder_columns(t, DEFAULT_LEAD_COLS_RAW)
         return t
+
+    def query_ancillary(
+            self,
+            dp_id=None, *,
+            help: bool = False,
+            columns: Union[List, str] = None,
+            column_filters: Optional[dict] = None,
+            maxrec: int = None,
+            **kwargs,
+    ) -> Union[Table, int, str, None]:
+        """
+        Query Phase 3 ancillary product files contained in the ESO archive.
+
+        Parameters
+        ----------
+        dp_id : str or list-like or Column, optional
+            Phase 3 product identifier(s) to query. These map to ``product_id``
+            in the ``phase3v2.product_files`` table. When ``help`` is ``True``,
+            this parameter is optional.
+        help : bool, optional
+            If ``True``, prints all the parameters accepted in ``column_filters``
+            and ``columns``. Default is ``False``.
+        columns : str or list of str, optional
+            Name of the columns the query should return. If specified as a string,
+            it should be a comma-separated list of column names.
+        column_filters : dict or None, optional
+            Constraints applied to the query in ADQL syntax,
+            e.g., ``{"quality": "like '%SCIENCE%'"}``.
+            Default is ``None``.
+        maxrec : int or None, optional
+            Overrides the configured row limit for this query only.
+        **kwargs
+            Additional optional parameters forwarded to the query.
+
+        Returns
+        -------
+        astropy.table.Table, str, int, or None
+            - By default, returns an :class:`~astropy.table.Table` containing records
+              based on the specified columns and constraints. Returns ``None`` if no results.
+            - When ``count_only`` is ``True``, returns an ``int`` representing the
+              record count for the specified filters.
+            - When ``get_query_payload`` is ``True``, returns the query string that
+              would be issued to the TAP service given the specified arguments.
+        """
+        table_name = _EsoNames.phase3_product_files_table
+        if help:
+            self.list_column(table_name)
+            return
+
+        dp_ids = _normalize_product_ids(dp_id)
+        if not dp_ids:
+            raise ValueError("dp_id must be specified when help=False.")
+
+        column_filters = dict(column_filters) if column_filters else {}
+
+        def _parse_product_id_filter(value):
+            if isinstance(value, (list, tuple, set)):
+                return _normalize_product_ids(value)
+            if not isinstance(value, str):
+                return _normalize_product_ids([value])
+
+            val = value.strip()
+            if not val:
+                return []
+
+            lower = val.lower()
+            if lower.startswith("in "):
+                rest = val[3:].strip()
+                if not (rest.startswith("(") and rest.endswith(")")):
+                    return None
+                inner = rest[1:-1]
+                items = [item.strip() for item in inner.split(",")]
+                cleaned = []
+                for item in items:
+                    if len(item) >= 2 and item[0] == item[-1] == "'":
+                        item = item[1:-1]
+                    item = item.strip()
+                    if item:
+                        cleaned.append(item)
+                return cleaned
+            if lower.startswith("="):
+                item = val[1:].strip()
+                if len(item) >= 2 and item[0] == item[-1] == "'":
+                    item = item[1:-1]
+                return [item] if item else []
+            if lower.startswith(("like ", "not like ", "between ", "not between ",
+                                 "<=", ">=", "!=", "<", ">")):
+                return None
+
+            if len(val) >= 2 and val[0] == val[-1] == "'":
+                val = val[1:-1]
+            return [val]
+
+        product_id_key = next((k for k in column_filters if k.lower() == "product_id"), None)
+        if product_id_key:
+            filter_values = _parse_product_id_filter(column_filters[product_id_key])
+            if filter_values is None:
+                raise ValueError(
+                    "column_filters for 'product_id' must use '=' or 'in' when dp_id is provided."
+                )
+            filter_values = _normalize_product_ids(filter_values)
+            if not filter_values:
+                raise ValueError("column_filters for 'product_id' is empty.")
+            filter_set = set(filter_values)
+            merged = [val for val in dp_ids if val in filter_set]
+            if not merged:
+                raise ValueError(
+                    "column_filters for 'product_id' conflicts with dp_id values."
+                )
+            dp_ids = merged
+            column_filters.pop(product_id_key, None)
+
+        allowed_kwargs = {
+            "top", "count_only", "get_query_payload", "authenticated",
+            "order_by", "order_by_desc",
+        }
+        unknown_kwargs = set(kwargs) - allowed_kwargs
+        if unknown_kwargs:
+            unknown_str = ", ".join(sorted(unknown_kwargs))
+            raise TypeError(f"Unexpected keyword argument(s): {unknown_str}")
+
+        row_limit = None
+        if maxrec is not None:
+            row_limit = self.ROW_LIMIT
+            self.ROW_LIMIT = maxrec
+
+        try:
+            user_params = _UserParams(table_name=table_name,
+                                      column_name="product_id",
+                                      allowed_values=dp_ids,
+                                      cone_ra=None,
+                                      cone_dec=None,
+                                      cone_radius=None,
+                                      columns=columns,
+                                      column_filters=column_filters,
+                                      top=kwargs.get("top"),
+                                      count_only=kwargs.get("count_only", False),
+                                      get_query_payload=kwargs.get("get_query_payload", False),
+                                      print_help=False,
+                                      authenticated=kwargs.get("authenticated", False),
+                                      order_by=kwargs.get("order_by", ''),
+                                      order_by_desc=kwargs.get("order_by_desc", True),
+                                      )
+            return self._query_on_allowed_values(user_params)
+        finally:
+            if row_limit is not None:
+                self.ROW_LIMIT = row_limit
 
     def get_headers(self, product_ids, *, cache=True):
         """

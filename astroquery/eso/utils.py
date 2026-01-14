@@ -3,6 +3,8 @@ utils.py: helper functions for the astropy.eso module
 """
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
+
+import numpy as np
 from astropy.table import Table
 
 DEFAULT_LEAD_COLS_RAW = ['object', 'ra', 'dec', 'dp_id', 'date_obs', 'prog_id']
@@ -37,6 +39,34 @@ def _split_str_as_list_of_str(column_str: str):
     else:
         column_list = list(map(lambda x: x.strip(), column_str.split(',')))
     return column_list
+
+
+def _normalize_product_ids(dp_id) -> List[str]:
+    if dp_id is None:
+        return []
+
+    if isinstance(dp_id, (str, bytes)):
+        raw_values = [dp_id]
+    else:
+        try:
+            raw_values = list(dp_id)
+        except TypeError:
+            raw_values = [dp_id]
+
+    normalized = []
+    seen = set()
+    for val in raw_values:
+        if val is None or np.ma.is_masked(val):
+            continue
+        if isinstance(val, bytes):
+            val = val.decode()
+        val = str(val).strip()
+        if not val or val in seen:
+            continue
+        seen.add(val)
+        normalized.append(val)
+
+    return normalized
 
 
 def _raise_if_has_deprecated_keys(filters: Optional[Dict[str, str]]) -> bool:
