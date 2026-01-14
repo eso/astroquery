@@ -233,6 +233,14 @@ class TestEso:
         assert set(inst) == set(instrument_list), \
             f"Expected result {instrument_list}; Obtained: {inst}"
 
+    def test_query_asm_payload(self):
+        eso = Eso()
+        asm_tables = eso.list_asm()
+        if not asm_tables:
+            pytest.skip("No ASM tables available")
+        query = eso.query_asm(asm_tables[0], get_query_payload=True)
+        assert f"from asm.{asm_tables[0]}" in query
+
     def test_retrieve_data(self):
         eso = Eso()
         file_id = 'AMBER.2006-03-14T07:40:19.830'

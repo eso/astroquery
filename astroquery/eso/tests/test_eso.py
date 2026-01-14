@@ -62,6 +62,16 @@ DATA_FILES = {
 
             "select table_name from TAP_SCHEMA.tables where schema_name='ist' order by table_name":
             "query_list_instruments.csv",
+
+            "select table_name from TAP_SCHEMA.tables where schema_name='asm' order by table_name":
+            "query_list_asm.csv",
+
+            "select column_name, datatype, xtype, unit from TAP_SCHEMA.columns "
+            "where table_name = 'asm.ambient_lasilla'":
+            "query_asm_columns_ambient_lasilla.csv",
+
+            "select temperature, humidity from asm.ambient_lasilla where temperature > 10":
+            "query_asm_ambient_lasilla.csv",
         }
 }
 
@@ -69,6 +79,8 @@ TEST_SURVEYS = [
     '081.C-0827', 'ADHOC', 'CAFFEINE', 'ENTROPY', 'GAIAESO', 'HARPS', 'INSPIRE', 'KIDS', 'ZCOSMOS']
 TEST_INSTRUMENTS = [
     'amber', 'crires', 'espresso', 'fors1', 'giraffe', 'gravity', 'midi', 'xshooter']
+TEST_ASM = [
+    'ambient_lasilla', 'dimm_paranal', 'meteo_paranal']
 
 
 def eso_request(request_type, url, **kwargs):
@@ -191,6 +203,35 @@ def test_list_instruments(monkeypatch):
     saved_list = eso.list_instruments()
     assert isinstance(saved_list, list)
     assert set(TEST_INSTRUMENTS) <= set(saved_list)
+
+
+def test_list_asm(monkeypatch):
+    eso = Eso()
+    monkeypatch.setattr(eso, 'query_tap', monkey_tap)
+    saved_list = eso.list_asm()
+    assert isinstance(saved_list, list)
+    assert set(TEST_ASM) <= set(saved_list)
+
+
+def test_query_asm(monkeypatch):
+    eso = Eso()
+    monkeypatch.setattr(eso, 'query_tap', monkey_tap)
+    result = eso.query_asm(
+        'asm.ambient_lasilla',
+        columns=['temperature', 'humidity'],
+        column_filters={
+            'temperature': '> 10'
+        }
+    )
+    assert len(result) == 2
+    assert 'temperature' in result.colnames
+
+
+def test_query_asm_unknown_column(monkeypatch):
+    eso = Eso()
+    monkeypatch.setattr(eso, 'query_tap', monkey_tap)
+    with pytest.raises(ValueError, match="Unknown column"):
+        eso.query_asm('ambient_lasilla', columns=['not_a_column'])
 
 
 def test_authenticate(monkeypatch):

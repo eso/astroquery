@@ -38,7 +38,7 @@ from ..query import QueryWithLogin
 from ..utils import schema
 from .utils import _UserParams, raise_if_coords_not_valid, _reorder_columns, \
     _raise_if_has_deprecated_keys, _build_adql_string, \
-    DEFAULT_LEAD_COLS_PHASE3, DEFAULT_LEAD_COLS_RAW
+    _split_str_as_list_of_str, DEFAULT_LEAD_COLS_PHASE3, DEFAULT_LEAD_COLS_RAW
 
 
 __all__ = ['Eso', 'EsoClass']
@@ -71,6 +71,7 @@ class _EsoNames:
     phase3_table = "ivoa.ObsCore"
     raw_instruments_column = "instrument"
     phase3_surveys_column = "obs_collection"
+    asm_schema = "asm"
 
     @staticmethod
     def ist_table(instrument_name):
@@ -78,6 +79,13 @@ class _EsoNames:
         Returns the name of the instrument specific table (IST)
         """
         return f"ist.{instrument_name}"
+
+    @staticmethod
+    def asm_table(asm_name):
+        """
+        Returns the name of the ASM table
+        """
+        return f"{_EsoNames.asm_schema}.{asm_name}"
 
     apex_quicklooks_table = ist_table.__func__("apex_quicklooks")
     apex_quicklooks_pid_column = "project_id"
@@ -350,6 +358,28 @@ class EsoClass(QueryWithLogin):
 
     @unlimited_maxrec
     @deprecated_renamed_argument('cache', None, since='0.4.12')
+    def list_asm(self, cache=True) -> List[str]:
+        """
+        List all the available ASM tables offered by the ESO archive.
+
+        Returns
+        -------
+        asm_list : list of strings
+        cache : bool
+            Deprecated - unused.
+        """
+        _ = cache  # We're aware about disregarding the argument
+        query_str = ("select table_name from TAP_SCHEMA.tables "
+                     f"where schema_name='{_EsoNames.asm_schema}' order by table_name")
+        res = self.query_tap(query_str)["table_name"].data
+
+        l_res = list(res)
+        l_res = list(map(lambda x: x.split(".", 1)[1], l_res))
+
+        return l_res
+
+    @unlimited_maxrec
+    @deprecated_renamed_argument('cache', None, since='0.4.12')
     def list_surveys(self, *, cache=True) -> List[str]:
         """
         List all the available surveys (phase 3) in the ESO archive.
@@ -368,17 +398,30 @@ class EsoClass(QueryWithLogin):
         return res
 
     @unlimited_maxrec
-    def list_column(self, table_name: str) -> None:
-        """
-        Prints the columns contained in a given table
-        """
-        help_query = (
-            f"select column_name, datatype, xtype, unit "
-            # TODO: The column description renders output unmanageable
-            # f", description "
+    def _get_table_columns(self, table_name: str, *, include_description: bool = False) -> Table:
+        columns = "column_name, datatype, xtype, unit"
+        if include_description:
+            columns = f"{columns}, description"
+        query_str = (
+            f"select {columns} "
             f"from TAP_SCHEMA.columns "
             f"where table_name = '{table_name}'")
-        available_cols = self.query_tap(help_query)
+        return self.query_tap(query_str)
+
+    @unlimited_maxrec
+    def list_column(self, table_name: str, *, include_description: bool = False) -> None:
+        """
+        Prints the columns contained in a given table
+
+        Parameters
+        ----------
+        table_name : str
+            Name of the table to inspect.
+        include_description : bool, optional
+            If ``True``, include column descriptions when available.
+        """
+        available_cols = self._get_table_columns(
+            table_name, include_description=include_description)
 
         count_query = f"select count(*) from {table_name}"
         num_records = list(self.query_tap(count_query)[0].values())[0]
@@ -589,6 +632,146 @@ class EsoClass(QueryWithLogin):
         t = self._query_on_allowed_values(user_params)
         t = _reorder_columns(t, DEFAULT_LEAD_COLS_RAW)
         return t
+
+    def query_asm(
+            self,
+            asm_table: str, *,
+            help: bool = False,
+            columns: Union[List, str] = None,
+            column_filters: Optional[dict] = None,
+            maxrec: int = None,
+            **kwargs,
+    ) -> Union[Table, int, str, None]:
+        """
+        Query ASM (Astronomical Site Monitor) data contained in the ESO archive.
+
+        Parameters
+        ----------
+        asm_table : str
+            Name of the ASM table to query. Should be ONLY ONE of the
+            names returned by :meth:`~astroquery.eso.EsoClass.list_asm`.
+            The ``asm.`` prefix is accepted.
+        help : bool, optional
+            If ``True``, prints all the parameters accepted in ``column_filters``
+            and ``columns``. Default is ``False``.
+        columns : str or list of str, optional
+            Name of the columns the query should return. If specified as a string,
+            it should be a comma-separated list of column names.
+        column_filters : dict or None, optional
+            Constraints applied to the query in ADQL syntax,
+            e.g., ``{"exp_start": "between '2024-12-31' and '2025-12-31'"}``.
+            Default is ``None``.
+        maxrec : int or None, optional
+            Overrides the configured row limit for this query only.
+        **kwargs
+            Additional optional parameters consistent with
+            :meth:`~astroquery.eso.EsoClass.query_instrument`, including:
+            ``top``, ``count_only``, ``get_query_payload``, ``authenticated``,
+            ``order_by``, and ``order_by_desc``.
+
+        Returns
+        -------
+        astropy.table.Table, str, int, or None
+            - By default, returns an :class:`~astropy.table.Table` containing records
+              based on the specified columns and constraints. Returns ``None`` if no results.
+            - When ``count_only`` is ``True``, returns an ``int`` representing the
+              record count for the specified filters.
+            - When ``get_query_payload`` is ``True``, returns the query string that
+              would be issued to the TAP service given the specified arguments.
+        """
+        column_filters = column_filters if column_filters else {}
+
+        if not isinstance(asm_table, str) or not asm_table.strip():
+            raise ValueError("asm_table must be a non-empty string.")
+
+        asm_table = asm_table.strip()
+        if asm_table.lower().startswith(f"{_EsoNames.asm_schema}."):
+            asm_table = asm_table.split(".", 1)[1]
+
+        asm_names = self.list_asm()
+        asm_map = {name.lower(): name for name in asm_names}
+        asm_table_key = asm_table.lower()
+        if asm_table_key not in asm_map:
+            raise ValueError(
+                f"Unknown ASM table '{asm_table}'. "
+                "Use list_asm() to see available ASM tables."
+            )
+
+        asm_table = asm_map[asm_table_key]
+        table_name = _EsoNames.asm_table(asm_table)
+
+        if help:
+            self.list_column(table_name, include_description=True)
+            return
+
+        allowed_kwargs = {
+            "top", "count_only", "get_query_payload", "authenticated",
+            "order_by", "order_by_desc",
+        }
+        unknown_kwargs = set(kwargs) - allowed_kwargs
+        if unknown_kwargs:
+            unknown_str = ", ".join(sorted(unknown_kwargs))
+            raise TypeError(f"Unexpected keyword argument(s): {unknown_str}")
+
+        columns_list = None
+        if columns is not None:
+            if isinstance(columns, str):
+                columns_list = _split_str_as_list_of_str(columns)
+            else:
+                columns_list = list(columns)
+
+        available_cols = self._get_table_columns(table_name)["column_name"].data
+        available_cols_map = {c.lower(): c for c in available_cols}
+
+        if columns_list:
+            if not (len(columns_list) == 1 and columns_list[0] == '*'):
+                missing_cols = [
+                    c for c in columns_list if c.lower() not in available_cols_map
+                ]
+                if missing_cols:
+                    missing_str = ", ".join(sorted(missing_cols))
+                    raise ValueError(
+                        f"Unknown column(s) in columns for table {table_name}: {missing_str}"
+                    )
+                columns = [available_cols_map[c.lower()] for c in columns_list]
+
+        if column_filters:
+            missing_filters = [
+                k for k in column_filters.keys() if k.lower() not in available_cols_map
+            ]
+            if missing_filters:
+                missing_str = ", ".join(sorted(missing_filters))
+                raise ValueError(
+                    f"Unknown column(s) in column_filters for table {table_name}: {missing_str}"
+                )
+            column_filters = {
+                available_cols_map[k.lower()]: v for k, v in column_filters.items()
+            }
+
+        row_limit = None
+        if maxrec is not None:
+            row_limit = self.ROW_LIMIT
+            self.ROW_LIMIT = maxrec
+
+        try:
+            user_params = _UserParams(
+                table_name=table_name,
+                column_name=None,
+                allowed_values=None,
+                columns=columns,
+                column_filters=column_filters,
+                top=kwargs.get("top"),
+                count_only=kwargs.get("count_only", False),
+                get_query_payload=kwargs.get("get_query_payload", False),
+                print_help=False,
+                authenticated=kwargs.get("authenticated", False),
+                order_by=kwargs.get("order_by", ''),
+                order_by_desc=kwargs.get("order_by_desc", True),
+            )
+            return self._query_on_allowed_values(user_params)
+        finally:
+            if row_limit is not None:
+                self.ROW_LIMIT = row_limit
 
     @deprecated_renamed_argument(('open_form', 'cache'), (None, None),
                                  since=['0.4.12', '0.4.12'])
