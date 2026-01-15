@@ -89,10 +89,9 @@ def test_query_catalogues_builds_expected_adql_with_columns_and_filters(monkeypa
             "ucd": ["", ""],
         })
 
-    def mock_run_catalogue_query(query, maxrec=None, type_of_query="sync", authenticated=False):
+    def mock_run_catalogue_query(query, maxrec=None, authenticated=False):
         captured["query"] = query
         captured["maxrec"] = maxrec
-        captured["type_of_query"] = type_of_query
         captured["authenticated"] = authenticated
         return Table({"colA": [1], "colB": [2]})
 

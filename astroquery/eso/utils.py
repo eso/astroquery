@@ -12,7 +12,7 @@ DEFAULT_LEAD_COLS_PHASE3 = ['target_name', 's_ra', 's_dec', 'dp_id', 'date_obs',
 
 
 @dataclass
-class _UserParams:
+class   _UserParams:
     """
     Parameters set by the user
     """

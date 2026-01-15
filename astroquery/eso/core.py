@@ -1058,19 +1058,18 @@ class EsoClass(QueryWithLogin):
         """
         Return a TAPService connected to the catalogue TAP endpoint.
         """
-        if authenticated and not self.authenticated():
-            raise LoginError(
-                "It seems you are trying to issue an authenticated query without "
-                "being authenticated. Possible solutions:\n"
-                "1. Set the query function argument authenticated=False"
-                " OR\n"
-                "2. Login with your username and password: "
-                "<eso_class_instance>.login(username=<your_username>"
-            )
-
         log.debug(f"Querying from {conf.tap_cat_url}")
         if authenticated:
             h = self._get_auth_header()
+            if not h:
+                raise LoginError(
+                    "It seems you are trying to issue an authenticated query to the catalogue TAP "
+                    f"service ({conf.tap_cat_url}) without being authenticated. Possible solutions:\n"
+                    "1. Set the query function argument authenticated=False"
+                    " OR\n"
+                    "2. Login with your username and password: "
+                    "<eso_class_instance>.login(username=<your_username>"
+                )
             self._session.headers = {**self._session.headers, **h}
             return TAPService(conf.tap_cat_url, session=self._session)
         return TAPService(conf.tap_cat_url)
@@ -1078,7 +1077,6 @@ class EsoClass(QueryWithLogin):
     def _run_catalogue_tap_query(self,
                                  query: str, *,
                                  maxrec: Optional[int] = None,
-                                 type_of_query: str = "sync",
                                  authenticated: bool = False) -> Table:
         """
         Execute a TAP query against the catalogue service.
@@ -1090,8 +1088,6 @@ class EsoClass(QueryWithLogin):
         maxrec : int, optional
             The maximum number of records to retrieve. If not provided, the
             current ROW_LIMIT value is used.
-        type_of_query : str, optional
-            The TAP query mode, either 'sync' or 'async'. Default is 'sync'.
         authenticated : bool, optional
             If ``True``, performs the query with an authenticated session.
 
@@ -1100,10 +1096,6 @@ class EsoClass(QueryWithLogin):
         astropy.table.Table
             Table with the query results.
         """
-        type_of_query = type_of_query.lower()
-        if type_of_query not in ("sync", "async"):
-            raise ValueError("`type_of_query` must be 'sync' or 'async'.")
-
         row_limit = maxrec if maxrec is not None else self.ROW_LIMIT
         if row_limit is None or row_limit < 1:
             row_limit = sys.maxsize
@@ -1120,16 +1112,9 @@ class EsoClass(QueryWithLogin):
         tmp_limit = self.ROW_LIMIT
         try:
             self.ROW_LIMIT = row_limit
-            if type_of_query == "sync":
-                table_with_extra = tap_service.search(
-                    query=query, maxrec=row_limit_plus_one
-                ).to_table()
-            else:
-                tap_job = tap_service.submit_job(query=query, maxrec=row_limit_plus_one)
-                tap_job.run()
-                tap_job.wait(phases=["EXECUTING", "COMPLETED", "ERROR", "ABORTED"], timeout=10.0)
-                tap_job.raise_if_error()
-                table_with_extra = tap_job.fetch_result().to_table()
+            table_with_extra = tap_service.search(
+                query=query, maxrec=row_limit_plus_one
+            ).to_table()
             self._maybe_warn_about_table_length(table_with_extra, row_limit_plus_one)
         except DALQueryError:
             log.error(message(query))
@@ -1178,7 +1163,7 @@ class EsoClass(QueryWithLogin):
         query = _build_catalogue_metadata_query(all_versions, clean_collections, clean_tables)
         if verbose:
             log.info("Query:\n%s", query)
-        table = self._run_catalogue_tap_query(query, maxrec=self.ROW_LIMIT, type_of_query="sync")
+        table = self._run_catalogue_tap_query(query, maxrec=self.ROW_LIMIT)
         if len(table) == 0:
             return table
 
@@ -1202,11 +1187,11 @@ class EsoClass(QueryWithLogin):
                     ucd = row["ucd"]
                     if table_name not in lookup:
                         continue
-                    if ucd == "meta.id;meta.main":
+                    if ucd.strip() == "meta.id;meta.main":
                         lookup[table_name]["id"].append(row["column_name"])
-                    elif ucd == "pos.eq.ra;meta.main":
+                    elif ucd.strip() == "pos.eq.ra;meta.main":
                         lookup[table_name]["ra"].append(row["column_name"])
-                    elif ucd == "pos.eq.dec;meta.main":
+                    elif ucd.strip() == "pos.eq.dec;meta.main":
                         lookup[table_name]["dec"].append(row["column_name"])
                 for idx, table_name in enumerate(table["table_name"]):
                     entry = lookup.get(table_name, {})
@@ -1276,13 +1261,12 @@ class EsoClass(QueryWithLogin):
         query = _build_catalogue_columns_query(clean_collections, clean_tables)
         if verbose:
             log.info("Query:\n%s", query)
-        return self._run_catalogue_tap_query(query, maxrec=self.ROW_LIMIT, type_of_query="sync")
+        return self._run_catalogue_tap_query(query, maxrec=self.ROW_LIMIT)
 
     def query_catalogues(self,
                          collections: Union[List[str], str] = None,
                          tables: Union[List[str], str] = None,
                          columns: Union[List[str], str] = None,
-                         type_of_query: str = "sync",
                          all_versions: bool = False,
                          maxrec: Optional[int] = None,
                          verbose: bool = False,
@@ -1301,8 +1285,6 @@ class EsoClass(QueryWithLogin):
             Catalogue table name(s) to query.
         columns : str or list of str, optional
             Column name(s) to retrieve. If not provided, selects all columns.
-        type_of_query : str, optional
-            The TAP query mode, either 'sync' or 'async'. Default is 'sync'.
         all_versions : bool, optional
             If ``True``, includes obsolete catalogue versions when expanding collections.
             Default is ``False``.
@@ -1331,7 +1313,7 @@ class EsoClass(QueryWithLogin):
         TypeError
             If ``columns`` or ``conditions_dict`` types are invalid.
         ValueError
-            If ``type_of_query`` or ``order`` are invalid.
+            If ``order`` is invalid.
         DALFormatError
             If the TAP response is malformed.
         """
@@ -1420,7 +1402,6 @@ class EsoClass(QueryWithLogin):
             result_table = self._run_catalogue_tap_query(
                 query,
                 maxrec=effective_maxrec,
-                type_of_query=type_of_query,
             )
             results.append(result_table)
 
