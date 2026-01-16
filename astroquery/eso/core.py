@@ -378,24 +378,50 @@ class EsoClass(QueryWithLogin):
         return res
 
     @unlimited_maxrec
-    def _list_column(self, table_name: str, *, which_tap: str = "tap_obs") -> None:
-        """
-        Prints the columns contained in a given table
-        """
+    def _columns_table(self, table_name: str, *, which_tap: str = "tap_obs") -> Table:
         if which_tap == "tap_obs":
             help_query = (
-                f"select column_name, datatype, unit, xtype "
-                f"from TAP_SCHEMA.columns "
-                f"where table_name = '{table_name}'")
+                "select column_name, datatype, unit, xtype "
+                f"from TAP_SCHEMA.columns where table_name = '{table_name}'")
         else:
             schema = _EsoNames.catalogue_schema
             help_query = (
-                f"select column_name, datatype, unit, ucd "
+                "select column_name, datatype, unit, ucd "
                 f"from TAP_SCHEMA.columns "
                 f"where table_name = '{table_name.removeprefix(schema+'.')}'")
+        return self.query_tap(help_query, which_tap=which_tap)
 
-        print(help_query)
-        available_cols = self.query_tap(help_query, which_tap=which_tap)
+    def _catalogue_radec_columns(self, table_name: str, *, which_tap: str = "tap_cat") -> Tuple[str, str]:
+        columns = self._columns_table(table_name, which_tap=which_tap)
+        ra_col = None
+        dec_col = None
+        for row in columns:
+            ucd = row["ucd"]
+            try:
+                ucd_norm = ucd.strip().lower()
+            except AttributeError:
+                continue
+            if ucd_norm == "pos.eq.ra;meta.main":
+                ra_col = row["column_name"]
+            elif ucd_norm == "pos.eq.dec;meta.main":
+                dec_col = row["column_name"]
+            if ra_col and dec_col:
+                break
+        if not ra_col or not dec_col:
+            raise ValueError(
+                "Unable to resolve RA/Dec columns from UCD metadata. "
+                "Expected UCDs 'pos.eq.ra;meta.main' and 'pos.eq.dec;meta.main'."
+            )
+        return ra_col, dec_col
+
+    @unlimited_maxrec
+    def _list_column(self, table_name: str, *, which_tap: str = "tap_obs",
+                     return_table: bool = False) -> Optional[Table]:
+        """
+        Prints the columns contained in a given table.
+        Returns an astropy table when return_table is True.
+        """
+        available_cols = self._columns_table(table_name, which_tap=which_tap)
 
         count_query = f"select count(*) from {table_name}"
         num_records = list(self.query_tap(count_query, which_tap=which_tap)[0].values())[0]
@@ -404,8 +430,11 @@ class EsoClass(QueryWithLogin):
                 "max_lines", len(available_cols) + 2),
                 astropy.conf.set_temp(
                 "max_width", sys.maxsize)):
-            log.info(f"\nColumns present in the table {table_name}:\n{available_cols}\n"
+            log.info(
+                    # f"\nColumns present in the table {table_name}:\n{available_cols}\n"
                      f"\nNumber of records present in the table {table_name}:\n{num_records}\n")
+        if return_table:
+            return available_cols
 
     @unlimited_maxrec
     @deprecated_renamed_argument('cache', None, since='0.4.12')
@@ -451,8 +480,9 @@ class EsoClass(QueryWithLogin):
         query_func=None,
     ) -> Union[Table, int, str, None]:
         if user_params.print_help:
-            self._list_column(user_params.table_name, which_tap=user_params.which_tap)
-            return
+            return self._list_column(user_params.table_name,
+                                     which_tap=user_params.which_tap,
+                                     return_table=True)
 
         _raise_if_has_deprecated_keys(user_params.column_filters)
 
@@ -539,7 +569,7 @@ class EsoClass(QueryWithLogin):
               would be issued to the TAP service given the specified arguments.
         """
         _ = open_form, cache  # make explicit that we are aware these arguments are unused
-        column_filters = column_filters if column_filters else {}
+        column_filters = dict(column_filters) if column_filters else {}
         user_params = _UserParams(table_name=_EsoNames.phase3_table,
                                   column_name=_EsoNames.phase3_surveys_column,
                                   allowed_values=surveys,
@@ -1135,11 +1165,11 @@ class EsoClass(QueryWithLogin):
             Name of the catalogue to query. Should be ONLY ONE of the names
             returned by :meth:`~astroquery.eso.EsoClass.list_catalogues`.
         cone_ra : float, optional
-            **Not implemented** for catalogue queries.
+            Cone Search Center - Right Ascension in degrees.
         cone_dec : float, optional
-            **Not implemented** for catalogue queries.
+            Cone Search Center - Declination in degrees.
         cone_radius : float, optional
-            **Not implemented** for catalogue queries.
+            Cone Search Radius in degrees.
         columns : str or list of str, optional
             Name of the columns the query should return. If specified as a string,
             it should be a comma-separated list of column names.
@@ -1203,6 +1233,15 @@ class EsoClass(QueryWithLogin):
             self.ROW_LIMIT = maxrec
 
         try:
+            if any(v is not None for v in (cone_ra, cone_dec, cone_radius)):
+                raise_if_coords_not_valid(cone_ra, cone_dec, cone_radius)
+                ra_col, dec_col = self._catalogue_radec_columns(table_name, which_tap="tap_cat")
+                cone_constraint = (
+                    "CONTAINS(point('', "
+                    f"{ra_col}, {dec_col}), circle('', {cone_ra}, {cone_dec}, {cone_radius}))"
+                )
+                column_filters[cone_constraint] = "= 1"
+
             user_params = _UserParams(table_name=table_name,
                                       column_name=None,
                                       allowed_values=None,
