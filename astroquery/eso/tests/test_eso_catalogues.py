@@ -7,122 +7,98 @@ ESO Astroquery Catalogue tests
 European Southern Observatory (ESO)
 
 """
+import pytest
 from astropy.table import Table
 
 from ...eso import Eso
 
 CATALOGUE_TABLE_NAME = "KiDS_DR4_1_ugriZYJHKs_cat_fits"
+CATALOGUE_TABLE_FULL = f"safcat.{CATALOGUE_TABLE_NAME}"
 
 
 def _catalogue_metadata_table():
     return Table({
-        "collection": ["KIDS"],
-        "title": ["KiDS DR4"],
-        "version": ["1.0"],
-        "table_name": [CATALOGUE_TABLE_NAME],
-    })
-
-
-def _catalogue_columns_table():
-    return Table({
-        "table_name": [CATALOGUE_TABLE_NAME, CATALOGUE_TABLE_NAME, CATALOGUE_TABLE_NAME],
-        "column_name": ["ra", "dec", "source_id"],
-        "ucd": ["pos.eq.ra;meta.main", "pos.eq.dec;meta.main", "meta.id;meta.main"],
-        "datatype": ["double", "double", "char"],
-        "description": ["", "", ""],
-        "unit": ["deg", "deg", ""],
+        "table_name": [CATALOGUE_TABLE_FULL],
     })
 
 
 def monkey_catalogue_tap(query, **kwargs):
     _ = kwargs
-    if "FROM TAP_SCHEMA.tables AS ref" in query:
+    if "tap_schema.tables" in query.lower():
         return _catalogue_metadata_table()
-    if "FROM TAP_SCHEMA.columns" in query:
-        return _catalogue_columns_table()
     raise AssertionError(f"Unexpected catalogue query: {query}")
 
 
 def test_list_catalogues_returns_table(monkeypatch):
     # monkeypatch instructions from https://pytest.org/latest/monkeypatch.html
     eso = Eso()
-    monkeypatch.setattr(eso, "_run_catalogue_tap_query", monkey_catalogue_tap)
+    monkeypatch.setattr(eso, "query_tap", monkey_catalogue_tap)
     result = eso.list_catalogues()
 
-    assert isinstance(result, Table)
+    assert isinstance(result, list)
     assert len(result) > 0
-    assert "table_name" in result.colnames
-    assert "table_RA" in result.colnames
-    assert result["table_name"][0] == CATALOGUE_TABLE_NAME
-
-
-def test_list_catalogues_info_returns_table(monkeypatch):
-    # monkeypatch instructions from https://pytest.org/latest/monkeypatch.html
-    eso = Eso()
-    monkeypatch.setattr(eso, "_run_catalogue_tap_query", monkey_catalogue_tap)
-    result = eso.list_catalogues_info(collections="KIDS")
-
-    assert isinstance(result, Table)
-    assert len(result) > 0
-    assert {"table_name", "column_name", "ucd", "datatype", "description", "unit"}.issubset(
-        result.colnames
-    )
+    assert all(isinstance(value, str) for value in result)
+    assert CATALOGUE_TABLE_NAME in result
 
 
 def test_query_catalogues_builds_expected_adql_with_columns_and_filters(monkeypatch):
     # monkeypatch instructions from https://pytest.org/latest/monkeypatch.html
     eso = Eso()
-    captured = {}
+    monkeypatch.setattr(eso, "list_catalogues", lambda *args, **kwargs: [CATALOGUE_TABLE_NAME])
 
-    def mock_list_catalogues(*args, **kwargs):
-        _ = args, kwargs
-        return Table({
-            "table_name": [CATALOGUE_TABLE_NAME],
-            "number_rows": [10],
-        })
-
-    def mock_list_catalogues_info(*args, **kwargs):
-        _ = args, kwargs
-        return Table({
-            "table_name": [CATALOGUE_TABLE_NAME, CATALOGUE_TABLE_NAME],
-            "column_name": ["colA", "colB"],
-            "ucd": ["", ""],
-        })
-
-    def mock_run_catalogue_query(query, maxrec=None, authenticated=False):
-        captured["query"] = query
-        captured["maxrec"] = maxrec
-        captured["authenticated"] = authenticated
-        return Table({"colA": [1], "colB": [2]})
-
-    monkeypatch.setattr(eso, "list_catalogues", mock_list_catalogues)
-    monkeypatch.setattr(eso, "list_catalogues_info", mock_list_catalogues_info)
-    monkeypatch.setattr(eso, "_run_catalogue_tap_query", mock_run_catalogue_query)
-
-    result = eso.query_catalogues(
-        tables=CATALOGUE_TABLE_NAME,
+    query = eso.query_catalogue(
+        catalogue=CATALOGUE_TABLE_NAME,
         columns=["colA", "colB"],
-        conditions_dict={"colC": "> 0", "colD": "foo"},
-        maxrec=5,
+        column_filters={"colC": "> 0", "colD": "foo"},
+        get_query_payload=True,
     )
 
-    assert isinstance(result, Table)
-    assert f"FROM {CATALOGUE_TABLE_NAME}" in captured["query"]
-    assert "SELECT colA, colB" in captured["query"]
-    assert "colC > 0" in captured["query"]
-    assert "colD = 'foo'" in captured["query"]
-    assert captured["maxrec"] == 5
+    assert f"from {CATALOGUE_TABLE_FULL}" in query
+    assert "select colA, colB" in query
+    assert "colC > 0" in query
+    assert "colD = 'foo'" in query
 
 
-def test_query_catalogues_unknown_collection_returns_none(monkeypatch):
+def test_query_catalogues_unknown_collection_raises(monkeypatch):
     # monkeypatch instructions from https://pytest.org/latest/monkeypatch.html
     eso = Eso()
 
-    def mock_list_catalogues(*args, **kwargs):
-        _ = args, kwargs
-        return Table()
+    monkeypatch.setattr(eso, "list_catalogues", lambda *args, **kwargs: [CATALOGUE_TABLE_NAME])
 
-    monkeypatch.setattr(eso, "list_catalogues", mock_list_catalogues)
-    result = eso.query_catalogues(collections="NO_SUCH_COLLECTION")
+    with pytest.raises(ValueError):
+        eso.query_catalogue(catalogue="NO_SUCH_COLLECTION")
 
-    assert result is None
+
+def test_query_catalogues_help_returns_table(monkeypatch):
+    eso = Eso()
+    monkeypatch.setattr(eso, "list_catalogues", lambda *args, **kwargs: [CATALOGUE_TABLE_NAME])
+
+    columns = Table({
+        "column_name": ["col_ra", "col_dec"],
+        "datatype": ["double", "double"],
+        "unit": ["deg", "deg"],
+        "ucd": ["pos.eq.ra;meta.main", "pos.eq.dec;meta.main"],
+    })
+    monkeypatch.setattr(eso, "_columns_table", lambda *args, **kwargs: columns)
+    monkeypatch.setattr(eso, "query_tap", lambda *args, **kwargs: Table({"count": [1]}))
+
+    result = eso.query_catalogue(catalogue=CATALOGUE_TABLE_NAME, help=True)
+
+    assert isinstance(result, Table)
+    assert "column_name" in result.colnames
+
+
+def test_query_catalogues_cone_uses_ucd_columns(monkeypatch):
+    eso = Eso()
+    monkeypatch.setattr(eso, "list_catalogues", lambda *args, **kwargs: [CATALOGUE_TABLE_NAME])
+    monkeypatch.setattr(eso, "_catalogue_radec_columns", lambda *args, **kwargs: ("col_ra", "col_dec"))
+
+    query = eso.query_catalogue(
+        catalogue=CATALOGUE_TABLE_NAME,
+        cone_ra=41.2863,
+        cone_dec=-55.7406,
+        cone_radius=0.04,
+        get_query_payload=True,
+    )
+
+    assert "CONTAINS(point('', col_ra, col_dec), circle('', 41.2863, -55.7406, 0.04)) = 1" in query
