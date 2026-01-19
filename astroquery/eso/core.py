@@ -71,6 +71,7 @@ class _EsoNames:
     phase3_table = "ivoa.ObsCore"
     raw_instruments_column = "instrument"
     phase3_surveys_column = "obs_collection"
+    catalogue_schema = "safcat"
 
     @staticmethod
     def ist_table(instrument_name):
@@ -255,8 +256,10 @@ class EsoClass(QueryWithLogin):
             row_limit_plus_one = self.ROW_LIMIT
             if self.ROW_LIMIT < sys.maxsize:
                 row_limit_plus_one = self.ROW_LIMIT + 1
-
-            table_with_an_extra_row = tap.search(query=query_str, maxrec=row_limit_plus_one).to_table()
+                table_with_an_extra_row = tap.search(query=query_str,
+                                                     maxrec=row_limit_plus_one).to_table()
+            else:
+                table_with_an_extra_row = tap.search(query=query_str).to_table()
             self._maybe_warn_about_table_length(table_with_an_extra_row, row_limit_plus_one)
         except DALQueryError:
             log.error(message(query_str))
@@ -267,7 +270,10 @@ class EsoClass(QueryWithLogin):
 
         return table_with_an_extra_row[:self.ROW_LIMIT]
 
-    def tap(self, authenticated: bool = False) -> TAPService:
+    def tap(self, authenticated: bool = False, *, which_tap: str = "tap_obs") -> TAPService:
+        which_tap = which_tap.lower()
+        if which_tap not in ("tap_obs", "tap_cat"):
+            raise ValueError("which_tap must be 'tap_obs' or 'tap_cat'.")
 
         if authenticated and not self.authenticated():
             raise LoginError(
@@ -279,32 +285,36 @@ class EsoClass(QueryWithLogin):
                 "<eso_class_instance>.login(username=<your_username>"
             )
 
-        log.debug(f"Querying from {self._tap_url()}")
+        tap_url = self._tap_url() if which_tap == "tap_obs" else conf.tap_cat_url
+        log.debug(f"Querying from {tap_url}")
         if authenticated:
             h = self._get_auth_header()
             self._session.headers = {**self._session.headers, **h}
-            tap_service = TAPService(self._tap_url(), session=self._session)
+            tap_service = TAPService(tap_url, session=self._session)
         else:
-            tap_service = TAPService(self._tap_url())
+            tap_service = TAPService(tap_url)
 
         return tap_service
 
     def query_tap(self,
                   query: str, *,
                   authenticated: bool = False,
+                  which_tap: str = "tap_obs",
                   ) -> Table:
         """
         Query the ESO TAP service using a free ADQL string.
 
         Parameters
         ----------
-        query_str : str
+        query : str
             The ADQL query string to be executed.
         authenticated : bool, optional
             If ``True``, the query is run as an authenticated user.
             Authentication must be performed beforehand via
             :meth:`astroquery.eso.EsoClass.login`. Authenticated queries
             may be slower. Default is ``False``.
+        which_tap : {"tap_obs", "tap_cat"}, optional
+            TAP endpoint to query. Default is ``"tap_obs"``.
 
         Returns
         -------
@@ -317,7 +327,7 @@ class EsoClass(QueryWithLogin):
         eso_instance.query_tap("SELECT * FROM ivoa.ObsCore")
         """
         table_to_return = Table()
-        tap_service = self.tap(authenticated)
+        tap_service = self.tap(authenticated, which_tap=which_tap)
         table_to_return = self._try_download_pyvo_table(query, tap_service)
         return table_to_return
 
@@ -368,35 +378,111 @@ class EsoClass(QueryWithLogin):
         return res
 
     @unlimited_maxrec
-    def list_column(self, table_name: str) -> None:
+    def _columns_table(self, table_name: str, *, which_tap: str = "tap_obs") -> Table:
+        if which_tap == "tap_obs":
+            help_query = (
+                "select column_name, datatype, unit, xtype "
+                f"from TAP_SCHEMA.columns where table_name = '{table_name}'")
+        else:
+            schema = _EsoNames.catalogue_schema
+            help_query = (
+                "select column_name, datatype, unit, ucd "
+                f"from TAP_SCHEMA.columns "
+                f"where table_name = '{table_name.removeprefix(schema+'.')}'")
+        return self.query_tap(help_query, which_tap=which_tap)
+
+    def _catalogue_radec_columns(self, table_name: str, *, which_tap: str = "tap_cat") -> Tuple[str, str]:
+        columns = self._columns_table(table_name, which_tap=which_tap)
+        ra_col = None
+        dec_col = None
+        for row in columns:
+            ucd = row["ucd"]
+            try:
+                ucd_norm = ucd.strip().lower()
+            except AttributeError:
+                continue
+            if ucd_norm == "pos.eq.ra;meta.main":
+                ra_col = row["column_name"]
+            elif ucd_norm == "pos.eq.dec;meta.main":
+                dec_col = row["column_name"]
+            if ra_col and dec_col:
+                break
+        if not ra_col or not dec_col:
+            raise ValueError(
+                "Unable to resolve RA/Dec columns from UCD metadata. "
+                "Expected UCDs 'pos.eq.ra;meta.main' and 'pos.eq.dec;meta.main'."
+            )
+        return ra_col, dec_col
+
+    @unlimited_maxrec
+    def _list_column(self, table_name: str, *, which_tap: str = "tap_obs",
+                     return_table: bool = False) -> Optional[Table]:
         """
-        Prints the columns contained in a given table
+        Prints the columns contained in a given table.
+        Returns an astropy table when return_table is True.
         """
-        help_query = (
-            f"select column_name, datatype, xtype, unit "
-            # TODO: The column description renders output unmanageable
-            # f", description "
-            f"from TAP_SCHEMA.columns "
-            f"where table_name = '{table_name}'")
-        available_cols = self.query_tap(help_query)
+        available_cols = self._columns_table(table_name, which_tap=which_tap)
 
         count_query = f"select count(*) from {table_name}"
-        num_records = list(self.query_tap(count_query)[0].values())[0]
+        num_records = list(self.query_tap(count_query, which_tap=which_tap)[0].values())[0]
 
         with (astropy.conf.set_temp(
                 "max_lines", len(available_cols) + 2),
                 astropy.conf.set_temp(
                 "max_width", sys.maxsize)):
-            log.info(f"\nColumns present in the table {table_name}:\n{available_cols}\n"
+            log.info(
+                    # f"\nColumns present in the table {table_name}:\n{available_cols}\n"
                      f"\nNumber of records present in the table {table_name}:\n{num_records}\n")
+        if return_table:
+            return available_cols
+
+    @unlimited_maxrec
+    @deprecated_renamed_argument('cache', None, since='0.4.12')
+    def list_catalogues(self, all_versions: bool = False, cache: bool = True) -> List[str]:
+        """
+        List available catalogue tables offered by the ESO archive.
+
+        Parameters
+        ----------
+        all_versions : bool, optional
+            If True, list all versions of each catalogue table. If False (default),
+            return only the latest version of each catalogue (as determined by the
+            TAP_CAT metadata query).
+        cache : bool, optional
+            Deprecated and unused. Retained for backwards compatibility.
+
+        Returns
+        -------
+        list[str]
+            List of catalogue table names.
+        """
+        _ = cache  # We're aware about disregarding the argument
+        schema = _EsoNames.catalogue_schema
+
+        query_str = (f"SELECT table_name FROM TAP_SCHEMA.tables as ref "
+                        "LEFT OUTER JOIN TAP_SCHEMA.keys AS k ON ref.table_name = k.from_table "
+                        "LEFT OUTER JOIN TAP_SCHEMA.key_columns AS kc ON k.key_id = kc.key_id "
+                        f"WHERE schema_name='{schema}'")
+
+        if not all_versions:
+            query_str += ("AND cat_id IN ( "
+                            "SELECT t1.cat_id "
+                            "FROM TAP_SCHEMA.tables t1 "
+                            "LEFT JOIN TAP_SCHEMA.tables t2 ON (t1.title = t2.title AND t1.version < t2.version) "
+                            "WHERE t2.title IS NULL)")
+            
+        res = self.query_tap(query_str, which_tap="tap_cat")
+        return list(res["table_name"])
 
     def _query_on_allowed_values(
         self,
-        user_params: _UserParams
+        user_params: _UserParams,
+        query_func=None,
     ) -> Union[Table, int, str, None]:
         if user_params.print_help:
-            self.list_column(user_params.table_name)
-            return
+            return self._list_column(user_params.table_name,
+                                     which_tap=user_params.which_tap,
+                                     return_table=True)
 
         _raise_if_has_deprecated_keys(user_params.column_filters)
 
@@ -407,7 +493,9 @@ class EsoClass(QueryWithLogin):
         if user_params.get_query_payload:
             return query
 
-        ret_table = self.query_tap(query=query, authenticated=user_params.authenticated)
+        if query_func is None:
+            query_func = self.query_tap
+        ret_table = query_func(query=query, authenticated=user_params.authenticated)
         return list(ret_table[0].values())[0] if user_params.count_only else ret_table
 
     @deprecated_renamed_argument(('open_form', 'cache'), (None, None),
@@ -481,7 +569,7 @@ class EsoClass(QueryWithLogin):
               would be issued to the TAP service given the specified arguments.
         """
         _ = open_form, cache  # make explicit that we are aware these arguments are unused
-        column_filters = column_filters if column_filters else {}
+        column_filters = dict(column_filters) if column_filters else {}
         user_params = _UserParams(table_name=_EsoNames.phase3_table,
                                   column_name=_EsoNames.phase3_surveys_column,
                                   allowed_values=surveys,
@@ -1051,6 +1139,130 @@ class EsoClass(QueryWithLogin):
                                   print_help=help,
                                   authenticated=authenticated)
         return self._query_on_allowed_values(user_params)
+
+    @deprecated_renamed_argument(('open_form', 'cache'), (None, None),
+                                 since=['0.4.12', '0.4.12'])
+    def query_catalogue(
+            self,
+            catalogue: str, *,
+            cone_ra: float = None, cone_dec: float = None, cone_radius: float = None,
+            columns: Union[List, str] = None,
+            column_filters: Optional[dict] = None,
+            top: int = None,
+            count_only: bool = False,
+            get_query_payload: bool = False,
+            help: bool = False,
+            authenticated: bool = False,
+            open_form: bool = False, cache: bool = False,
+            maxrec: Optional[int] = None,
+    ) -> Union[Table, int, str]:
+        """
+        Query catalogue data contained in the ESO archive.
+
+        Parameters
+        ----------
+        catalogue : str
+            Name of the catalogue to query. Should be ONLY ONE of the names
+            returned by :meth:`~astroquery.eso.EsoClass.list_catalogues`.
+        cone_ra : float, optional
+            Cone Search Center - Right Ascension in degrees.
+        cone_dec : float, optional
+            Cone Search Center - Declination in degrees.
+        cone_radius : float, optional
+            Cone Search Radius in degrees.
+        columns : str or list of str, optional
+            Name of the columns the query should return. If specified as a string,
+            it should be a comma-separated list of column names.
+        top : int, optional
+            When set to ``N``, returns only the top ``N`` records.
+        count_only : bool, optional
+            If ``True``, returns only an ``int``: the count of the records
+            the query would return when set to ``False``. Default is ``False``.
+        get_query_payload : bool, optional
+            If ``True``, returns only a ``str``: the query string that
+            would be issued to the TAP service. Default is ``False``.
+        help : bool, optional
+            If ``True``, prints all the parameters accepted in ``column_filters``
+            and ``columns``. Default is ``False``.
+        authenticated : bool, optional
+            If ``True``, runs the query as an authenticated user.
+            Authentication must be done beforehand via
+            :meth:`~astroquery.eso.EsoClass.login`. Note that authenticated queries
+            are slower. Default is ``False``.
+        column_filters : dict or None, optional
+            Constraints applied to the query in ADQL syntax,
+            e.g., ``{"mag": "< 20"}``.
+            Default is ``None``.
+        open_form : bool, optional
+            **Deprecated** - unused.
+        cache : bool, optional
+            **Deprecated** - unused.
+        maxrec : int, optional
+            Overrides the configured row limit for this query only.
+
+        Returns
+        -------
+        astropy.table.Table, str, int, or None
+            - By default, returns an :class:`~astropy.table.Table` containing records
+              based on the specified columns and constraints. Returns ``None`` if no results.
+            - When ``count_only`` is ``True``, returns an ``int`` representing the
+              record count for the specified filters.
+            - When ``get_query_payload`` is ``True``, returns the query string that
+              would be issued to the TAP service given the specified arguments.
+        """
+        _ = open_form, cache  # make explicit that we are aware these arguments are unused
+        column_filters = column_filters if column_filters else {}
+
+        schema = _EsoNames.catalogue_schema
+        if catalogue.lower().startswith(f"{schema}."):
+            catalogue = catalogue.split(".", 1)[1]
+
+        catalogue_names = self.list_catalogues(all_versions=True)
+        catalogue_map = {name.lower(): name for name in catalogue_names}
+        lookup_key = catalogue.lower()
+        if lookup_key not in catalogue_map:
+            raise ValueError(
+                f"Unknown catalogue '{catalogue}'. Use list_catalogues() to see available catalogues."
+            )
+        catalogue = catalogue_map[lookup_key]
+        table_name = f"{schema}.{catalogue}"
+
+        row_limit = None
+        if maxrec is not None:
+            row_limit = self.ROW_LIMIT
+            self.ROW_LIMIT = maxrec
+
+        try:
+            if any(v is not None for v in (cone_ra, cone_dec, cone_radius)):
+                raise_if_coords_not_valid(cone_ra, cone_dec, cone_radius)
+                ra_col, dec_col = self._catalogue_radec_columns(table_name, which_tap="tap_cat")
+                cone_constraint = (
+                    "CONTAINS(point('', "
+                    f"{ra_col}, {dec_col}), circle('', {cone_ra}, {cone_dec}, {cone_radius}))"
+                )
+                column_filters[cone_constraint] = "= 1"
+
+            user_params = _UserParams(table_name=table_name,
+                                      column_name=None,
+                                      allowed_values=None,
+                                      cone_ra=None,
+                                      cone_dec=None,
+                                      cone_radius=None,
+                                      columns=columns,
+                                      column_filters=column_filters,
+                                      top=top,
+                                      count_only=count_only,
+                                      get_query_payload=get_query_payload,
+                                      print_help=help,
+                                      authenticated=authenticated,
+                                      which_tap="tap_cat"
+                                      )
+            query_func = functools.partial(self.query_tap, which_tap="tap_cat")
+            return self._query_on_allowed_values(user_params, query_func=query_func) 
+        
+        finally:
+            if row_limit is not None:
+                self.ROW_LIMIT = row_limit
 
 
 Eso = EsoClass()

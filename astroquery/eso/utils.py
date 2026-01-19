@@ -3,6 +3,8 @@ utils.py: helper functions for the astropy.eso module
 """
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
+
+import numpy as np
 from astropy.table import Table
 
 DEFAULT_LEAD_COLS_RAW = ['object', 'ra', 'dec', 'dp_id', 'date_obs', 'prog_id']
@@ -10,7 +12,7 @@ DEFAULT_LEAD_COLS_PHASE3 = ['target_name', 's_ra', 's_dec', 'dp_id', 'date_obs',
 
 
 @dataclass
-class _UserParams:
+class   _UserParams:
     """
     Parameters set by the user
     """
@@ -29,6 +31,7 @@ class _UserParams:
     get_query_payload: bool = False
     print_help: bool = False
     authenticated: bool = False
+    which_tap: str = "tap_obs"
 
 
 def _split_str_as_list_of_str(column_str: str):
