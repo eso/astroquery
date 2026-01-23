@@ -404,34 +404,10 @@ class EsoClass(QueryWithLogin):
                 f"where table_name = '{table_name.removeprefix(schema+'.')}'")
         return self.query_tap(help_query, which_tap=which_tap)
 
-    def _catalogue_radec_columns(self, table_name: str, *, which_tap: str = "tap_cat") -> Tuple[str, str]:
-        columns = self._columns_table(table_name, which_tap=which_tap)
-        ra_col = None
-        dec_col = None
-        for row in columns:
-            ucd = row["ucd"]
-            try:
-                ucd_norm = ucd.strip().lower()
-            except AttributeError:
-                continue
-            if ucd_norm == "pos.eq.ra;meta.main":
-                ra_col = row["column_name"]
-            elif ucd_norm == "pos.eq.dec;meta.main":
-                dec_col = row["column_name"]
-            if ra_col and dec_col:
-                break
-        if not ra_col or not dec_col:
-            raise ValueError(
-                "Unable to resolve RA/Dec columns from UCD metadata. "
-                "Expected UCDs 'pos.eq.ra;meta.main' and 'pos.eq.dec;meta.main'."
-            )
-        return ra_col, dec_col
-
     @unlimited_maxrec
     def _list_column(self, table_name: str, *, which_tap: str = "tap_obs") -> Optional[Table]:
         """
         Prints the columns contained in a given table.
-        Returns an astropy table when return_table is True.
         """
         available_cols = self._columns_table(table_name, which_tap=which_tap)
 
