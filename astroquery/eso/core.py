@@ -19,6 +19,7 @@ import subprocess
 import time
 import warnings
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 from typing import List, Optional, Tuple, Dict, Set, Union
 
 import astropy.utils.data
@@ -142,6 +143,18 @@ class EsoClass(QueryWithLogin):
             mr = value
 
         self._ROW_LIMIT = mr
+
+    @contextmanager
+    def _temporary_row_limit(self, row_limit: Optional[int]):
+        if row_limit is None:
+            yield
+            return
+        tmpvar = self.ROW_LIMIT
+        try:
+            self.ROW_LIMIT = row_limit
+            yield
+        finally:
+            self.ROW_LIMIT = tmpvar
 
     def _tap_url(self) -> str:
         url = conf.tap_url
@@ -415,8 +428,7 @@ class EsoClass(QueryWithLogin):
         return ra_col, dec_col
 
     @unlimited_maxrec
-    def _list_column(self, table_name: str, *, which_tap: str = "tap_obs",
-                     return_table: bool = False) -> Optional[Table]:
+    def _list_column(self, table_name: str, *, which_tap: str = "tap_obs") -> Optional[Table]:
         """
         Prints the columns contained in a given table.
         Returns an astropy table when return_table is True.
@@ -431,10 +443,8 @@ class EsoClass(QueryWithLogin):
                 astropy.conf.set_temp(
                 "max_width", sys.maxsize)):
             log.info(
-                    # f"\nColumns present in the table {table_name}:\n{available_cols}\n"
+                    f"\nColumns present in the table {table_name}:\n{available_cols}\n"
                      f"\nNumber of records present in the table {table_name}:\n{num_records}\n")
-        if return_table:
-            return available_cols
 
     @unlimited_maxrec
     @deprecated_renamed_argument('cache', None, since='0.4.12')
@@ -473,30 +483,6 @@ class EsoClass(QueryWithLogin):
             
         res = self.query_tap(query_str, which_tap="tap_cat")
         return list(res["table_name"])
-
-    def _query_on_allowed_values(
-        self,
-        user_params: _UserParams,
-        query_func=None,
-    ) -> Union[Table, int, str, None]:
-        if user_params.print_help:
-            return self._list_column(user_params.table_name,
-                                     which_tap=user_params.which_tap,
-                                     return_table=True)
-
-        _raise_if_has_deprecated_keys(user_params.column_filters)
-
-        raise_if_coords_not_valid(user_params.cone_ra, user_params.cone_dec, user_params.cone_radius)
-
-        query = _build_adql_string(user_params)
-
-        if user_params.get_query_payload:
-            return query
-
-        if query_func is None:
-            query_func = self.query_tap
-        ret_table = query_func(query=query, authenticated=user_params.authenticated)
-        return list(ret_table[0].values())[0] if user_params.count_only else ret_table
 
     @deprecated_renamed_argument(('open_form', 'cache'), (None, None),
                                  since=['0.4.12', '0.4.12'])
@@ -1154,7 +1140,7 @@ class EsoClass(QueryWithLogin):
             help: bool = False,
             authenticated: bool = False,
             open_form: bool = False, cache: bool = False,
-            maxrec: Optional[int] = None,
+            ROW_LIMIT: Optional[int] = None,
     ) -> Union[Table, int, str]:
         """
         Query catalogue data contained in the ESO archive.
@@ -1197,8 +1183,8 @@ class EsoClass(QueryWithLogin):
             **Deprecated** - unused.
         cache : bool, optional
             **Deprecated** - unused.
-        maxrec : int, optional
-            Overrides the configured row limit for this query only.
+        ROW_LIMIT : int, optional
+            Overrides the configured (eso.ROW_LIMIT) row limit for this query only.
 
         Returns
         -------
@@ -1214,34 +1200,9 @@ class EsoClass(QueryWithLogin):
         column_filters = column_filters if column_filters else {}
 
         schema = _EsoNames.catalogue_schema
-        if catalogue.lower().startswith(f"{schema}."):
-            catalogue = catalogue.split(".", 1)[1]
-
-        catalogue_names = self.list_catalogues(all_versions=True)
-        catalogue_map = {name.lower(): name for name in catalogue_names}
-        lookup_key = catalogue.lower()
-        if lookup_key not in catalogue_map:
-            raise ValueError(
-                f"Unknown catalogue '{catalogue}'. Use list_catalogues() to see available catalogues."
-            )
-        catalogue = catalogue_map[lookup_key]
         table_name = f"{schema}.{catalogue}"
 
-        row_limit = None
-        if maxrec is not None:
-            row_limit = self.ROW_LIMIT
-            self.ROW_LIMIT = maxrec
-
-        try:
-            if any(v is not None for v in (cone_ra, cone_dec, cone_radius)):
-                raise_if_coords_not_valid(cone_ra, cone_dec, cone_radius)
-                ra_col, dec_col = self._catalogue_radec_columns(table_name, which_tap="tap_cat")
-                cone_constraint = (
-                    "CONTAINS(point('', "
-                    f"{ra_col}, {dec_col}), circle('', {cone_ra}, {cone_dec}, {cone_radius}))"
-                )
-                column_filters[cone_constraint] = "= 1"
-
+        with self._temporary_row_limit(ROW_LIMIT):
             user_params = _UserParams(table_name=table_name,
                                       column_name=None,
                                       allowed_values=None,
@@ -1258,11 +1219,7 @@ class EsoClass(QueryWithLogin):
                                       which_tap="tap_cat"
                                       )
             query_func = functools.partial(self.query_tap, which_tap="tap_cat")
-            return self._query_on_allowed_values(user_params, query_func=query_func) 
-        
-        finally:
-            if row_limit is not None:
-                self.ROW_LIMIT = row_limit
+            return self._query_on_allowed_values(user_params, query_func=query_func)
 
 
 Eso = EsoClass()
