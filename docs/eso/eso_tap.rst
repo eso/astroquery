@@ -3,13 +3,31 @@
 Query Raw or Reduced Data using the TAP Service
 ***********************************************
 
-The ESO `TAP service <https://archive.eso.org/programmatic/#TAP>`_ allows you to issue custom `ADQL <https://www.ivoa.net/documents/ADQL/>`_ (Astronomical Data Query Language) queries against the archive metadata, offering fine-grained control over your search. TAP queries can be issued against different tables, depending on the type of data you're interested in:
+The ESO `TAP service <https://archive.eso.org/programmatic/#TAP>`_ allows users to
+submit custom `ADQL <https://www.ivoa.net/documents/ADQL/>`_ (Astronomical Data
+Query Language) queries against the archive metadata, providing fine-grained
+control over complex searches. TAP queries can be executed against different
+tables depending on the type of data required:
 
-- The ``ivoa.ObsCore`` table provides standardized metadata for **fully calibrated (Phase 3) data products**.
-- The ``dbo.raw`` table provides access to **raw observational data** across all ESO instruments.
-- The ``ist.<instrument_name>`` tables (e.g. ``ist.midi``, ``ist.muse``) allow more detailed queries tailored to **instrument-specific raw metadata**.
+- ``ivoa.ObsCore``: standardized metadata for **fully calibrated (Phase 3) data
+  products** corresponding to high-level queries, such as available via
+  :meth:`~astroquery.eso.EsoClass.query_surveys`.
 
-These various query options have also been demonstrated earlier in this documentation using high-level `astroquery.eso` interfaces such as :meth:`~astroquery.eso.EsoClass.query_instrument`, :meth:`~astroquery.eso.EsoClass.query_main`, and :meth:`~astroquery.eso.EsoClass.list_surveys`. Using ADQL directly through TAP enables greater flexibility when building complex queries that combine constraints across multiple metadata fields.
+- ``dbo.raw``: metadata for **raw observational data** across all ESO
+  instruments, such as available via :meth:`~astroquery.eso.EsoClass.query_main`.
+
+- ``ist.<instrument_name>`` (e.g. ``ist.muse``, ``ist.midi``): **instrument-specific
+  raw metadata** tables, such as available via
+  :meth:`~astroquery.eso.EsoClass.query_instrument`.
+
+While these query modes are covered by the high-level ``astroquery.eso`` API,
+direct use of ADQL through TAP provides additional flexibility for constructing
+advanced queries that combine constraints across multiple metadata fields or
+tables. For more information about the TAP and how to write ADQL queries, refer to the following resources:
+
+- `ESO TAP+ documentation <https://archive.eso.org/programmatic/>`_: Describes ESO's implementation of TAP and the available services.
+- `IVOA TAP standard <https://www.ivoa.net/documents/TAP/>`_: The official specification from the International Virtual Observatory Alliance.
+- `ADQL specification <https://www.ivoa.net/documents/ADQL/>`_: Defines the query language used to interact with TAP services.
 
 Query for Raw Data (Generic)
 ============================
@@ -73,13 +91,6 @@ The following example queries the ``ivoa.ObsCore`` table to find fully calibrate
             ...
             SPHERE           3        M      H        0.0122          SPHERE
 
-.. tip:: 
-
-    For more information about the TAP and how to write ADQL queries, refer to the following resources:
-
-    - `ESO TAP+ documentation <https://archive.eso.org/programmatic/>`_: Describes ESO's implementation of TAP and the available services.
-    - `IVOA TAP standard <https://www.ivoa.net/documents/TAP/>`_: The official specification from the International Virtual Observatory Alliance.
-    - `ADQL specification <https://www.ivoa.net/documents/ADQL/>`_: Defines the query language used to interact with TAP services.
 
 Download Data
 =============
