@@ -3,9 +3,7 @@
 Query for Reduced Data
 **********************
 
-In addition to raw observational files, the ESO Science Archive provides access to a wide range of **processed (reduced) data products**, also known as **Phase 3** data. These include science-ready images, spectra, and datacubes that have been calibrated and validated by ESO or by contributing survey teams.
-
-This section demonstrates how to search for and retrieve these reduced products using ``astroquery.eso``. The examples focus on **Phase 3 survey data**, which are organized by instrument, observing program, and survey tile.
+In addition to raw observational files, the ESO Science Archive provides access to a wide range of **processed (reduced) data products**. These include science-ready images, spectra, and datacubes that have been validated by ESO (through the `ESO Phase 3 <https://www.eso.org/sci/observing/phase3.html>`_ process).
 
 Available Surveys
 =================
@@ -55,16 +53,27 @@ As before, list the possible columns in :meth:`~astroquery.eso.EsoClass.query_su
     4559928
     [astroquery.eso.core]
 
+.. note::
+   Column names may differ between the tables returned by different query
+   methods. Users are encouraged to inspect closly the available columns and supported
+   filters using the ``help=True`` option. For example, for raw data queries
+   (:meth:`~astroquery.eso.EsoClass.query_main` and
+   :meth:`~astroquery.eso.EsoClass.query_instrument`), the target name is specified
+   using the ``object`` column, whereas for reduced data queries
+   (:meth:`~astroquery.eso.EsoClass.query_surveys`) the corresponding column is
+   named ``target_name``.
+
 Query with Constraints (Specific Survey)
 ========================================
 
-Let's assume that we work with the ``HARPS`` survey, and that we are interested in
+Let's assume that we work with the `HARPS survey <https://www.eso.org/rm/api/v1/public/releaseDescriptions/72>`_, and that we are interested in
 target ``HD203608``. The archive can be queried as follows:
 
 .. doctest-remote-data::
 
     >>> table = eso.query_surveys(surveys="HARPS", 
-    ...                           column_filters= {"target_name": "HD203608"})
+    ...                           column_filters= {"target_name": "HD203608"}
+    ...                          )
     >>> table
     <Table length=1000>
     target_name    s_ra     s_dec              dp_id             proposal_id  abmaglim access_estsize ...   snr    strehl t_exptime     t_max          t_min      t_resolution t_xel
@@ -104,13 +113,9 @@ You can also query a specific instrument using the same method (e.g., ``HARPS``)
 
 .. tip:: 
 
-    Keep in mind that the definition of a ``survey`` (also referred to as a **collection** in the ESO Science Archive) is not the same as the definition of an **instrument**. The ``instrument_name`` refers to the actual hardware that acquired the data (e.g., ``HARPS``, ``MUSE``), whereas the ``obs_collection`` identifies the scientific program, survey, or processing pipeline associated with the data product. 
+    Keep in mind that the definition of a ``survey`` (also referred to as a **collection** in the ESO Science Archive) is not the same as the definition of an **instrument**. The ``instrument_name`` refers to the actual hardware that acquired the data (e.g., ``HARPS``, ``MUSE``), whereas the ``obs_collection`` identifies the scientific program, survey, or processing pipeline associated with the data product. In many cases, survey names match the instrument name (e.g., ``HARPS``, ``MUSE``, ``XSHOOTER``), which typically indicates **products processed and curated by ESO**. However, when the collection name differs (e.g., ``AMBRE``, ``GAIAESO``, ``PHANGS``), it usually denotes **community-contributed data** from large collaborations or specific science teams.
 
-    In many cases, survey names match the instrument name (e.g., ``HARPS``, ``MUSE``, ``XSHOOTER``), which typically indicates **Phase 3 products processed and curated by ESO**. However, when the collection name differs (e.g., ``AMBRE``, ``GAIAESO``, ``PHANGS``), it usually denotes **community-contributed data** from large collaborations or specific science teams.
-
-    So, for example, querying for ``eso.query_surveys(column_filters={"instrument_name": "HARPS"})`` will return all products taken with the HARPS instrument, across all programs and collections. In contrast, filtering on ``eso.query_surveys(surveys="HARPS"}`` will return only the `HARPS data reduced by ESO <https://doi.eso.org/10.18727/archive/33>`_.
-
-    You can inspect the collection for each result via the ``obs_collection`` column in your results table.
+    So, for example, querying for ``eso.query_surveys(column_filters={"instrument_name": "HARPS"})`` will return all products taken with the HARPS instrument, across all programs and collections. In contrast, filtering on ``eso.query_surveys(surveys="HARPS"}`` will return only the `HARPS data reduced by ESO <https://doi.eso.org/10.18727/archive/33>`_. You can inspect the collection for each result via the ``obs_collection`` column in your results table.
 
 Download Data
 =============
