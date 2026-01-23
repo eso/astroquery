@@ -467,8 +467,7 @@ class EsoClass(QueryWithLogin):
     ) -> Union[Table, int, str, None]:
         if user_params.print_help:
             return self._list_column(user_params.table_name,
-                                     which_tap=user_params.which_tap,
-                                     return_table=True)
+                                     which_tap=user_params.which_tap)
 
         _raise_if_has_deprecated_keys(user_params.column_filters)
 
@@ -1151,10 +1150,13 @@ class EsoClass(QueryWithLogin):
             Name of the catalogue to query. Should be ONLY ONE of the names
             returned by :meth:`~astroquery.eso.EsoClass.list_catalogues`.
         cone_ra : float, optional
+            Not yet implemented.
             Cone Search Center - Right Ascension in degrees.
         cone_dec : float, optional
+            Not yet implemented.
             Cone Search Center - Declination in degrees.
         cone_radius : float, optional
+            Not yet implemented.
             Cone Search Radius in degrees.
         columns : str or list of str, optional
             Name of the columns the query should return. If specified as a string,
