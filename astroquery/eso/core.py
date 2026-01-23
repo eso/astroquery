@@ -460,6 +460,30 @@ class EsoClass(QueryWithLogin):
         res = self.query_tap(query_str, which_tap="tap_cat")
         return list(res["table_name"])
 
+    def _query_on_allowed_values(
+        self,
+        user_params: _UserParams,
+        query_func=None,
+    ) -> Union[Table, int, str, None]:
+        if user_params.print_help:
+            return self._list_column(user_params.table_name,
+                                     which_tap=user_params.which_tap,
+                                     return_table=True)
+
+        _raise_if_has_deprecated_keys(user_params.column_filters)
+
+        raise_if_coords_not_valid(user_params.cone_ra, user_params.cone_dec, user_params.cone_radius)
+
+        query = _build_adql_string(user_params)
+
+        if user_params.get_query_payload:
+            return query
+
+        if query_func is None:
+            query_func = self.query_tap
+        ret_table = query_func(query=query, authenticated=user_params.authenticated)
+        return list(ret_table[0].values())[0] if user_params.count_only else ret_table
+    
     @deprecated_renamed_argument(('open_form', 'cache'), (None, None),
                                  since=['0.4.12', '0.4.12'])
     def query_surveys(
