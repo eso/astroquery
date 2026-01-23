@@ -9,12 +9,12 @@ There is however a way to get the full primary header of the FITS data products,
 
 .. doctest-remote-data::
 
-    >>> table = eso.query_instrument('midi',
+    >>> table = eso.query_instrument("midi",
     ...                     column_filters={
-    ...                         'object': 'NGC4151',
-    ...                         'date_obs': "<='2008-01-01'"
+    ...                         "object": "NGC4151",
+    ...                         "date_obs": "<='2008-01-01'"
     ...                     },
-    ...                     columns=['object', 'date_obs', 'dp_id']
+    ...                     columns=["object", "date_obs", "dp_id"]
     ...                          )
 
 While the archive query interfaces expose the most commonly used metadata fields,

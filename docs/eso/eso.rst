@@ -19,8 +19,8 @@ identifiers (``dp_id``).
     >>> eso = Eso()
     >>> table_raw = eso.query_main("MUSE", column_filters={"object": "NGC300"})
     >>> table_reduced = eso.query_surveys("MUSE", column_filters={"target_name": "NGC300"})
-    >>> eso.retrieve_data(table_raw['dp_id'])
-    >>> eso.retrieve_data(table_reduced['dp_id'])
+    >>> eso.retrieve_data(table_raw["dp_id"])
+    >>> eso.retrieve_data(table_reduced["dp_id"])
 
 By default, queries are limited to returning a maximum of 1000 rows. This limit
 can be modified by setting the ``ROW_LIMIT`` attribute. To disable truncation
@@ -63,11 +63,11 @@ Getting Started
     .. doctest-skip::
 
         column_filters = {
-            'some_int_column': "< 5",
-            'some_float_column_2': ">= 1.23",
-            'some_char_column': "like '%John%'",
-            'some_generic_column': "in ('mango', 'apple', 'kiwi')",
-            'other_generic_column': "between '2024-01-01' and '2024-12-31'"
+            "some_int_column": "< 5",
+            "some_float_column_2": ">= 1.23",
+            "some_char_column": "like '%John%'",
+            "some_generic_column": "in ('mango', 'apple', 'kiwi')",
+            "other_generic_column": "between '2024-01-01' and '2024-12-31'"
         }
 
     Please review your queries carefully and update them accordingly to ensure compatibility with the new astroquery versions.

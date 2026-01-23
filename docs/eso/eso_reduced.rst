@@ -98,7 +98,9 @@ You can also query a specific instrument using the same method (e.g., ``HARPS``)
 .. doctest-remote-data::
 
     >>> table = eso.query_surveys(column_filters={"instrument_name": "HARPS", 
-    ...                                            "target_name": "HD203608"})
+    ...                                            "target_name": "HD203608"}
+    ...                          )
+    
     >>> table
     <Table length=1000>
     target_name    s_ra     s_dec              dp_id             proposal_id  abmaglim access_estsize               access_format                ... s_xel2   snr    strehl t_exptime     t_max          t_min      t_resolution t_xel
