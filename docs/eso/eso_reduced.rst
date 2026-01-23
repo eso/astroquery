@@ -55,7 +55,7 @@ As before, list the possible columns in :meth:`~astroquery.eso.EsoClass.query_su
 
 .. note::
    Column names may differ between the tables returned by different query
-   methods. Users are encouraged to inspect closly the available columns and supported
+   methods. Users are encouraged to inspect closely the available columns and supported
    filters using the ``help=True`` option. For example, for raw data queries
    (:meth:`~astroquery.eso.EsoClass.query_main` and
    :meth:`~astroquery.eso.EsoClass.query_instrument`), the target name is specified
@@ -88,12 +88,12 @@ target ``HD203608``. The archive can be queried as follows:
 
 The returned table has a ``dp_id`` column, which can be used to retrieve the datasets with
 :meth:`~astroquery.eso.EsoClass.retrieve_data`: ``eso.retrieve_data(table["dp_id"][0])``.
-More details about this method in the following section.
+More details about this method are in the following section.
 
 Query with Constraints (Specific Instrument)
 ============================================
 
-You can also query a specific instrument using the same method (e.g., ``HARPS``). For example, to retrieve **all** available HARPS data products regardless of the associated survey towards ``HD203608`` is given the following query:
+You can also query a specific instrument using the same method (e.g., ``HARPS``). For example, to retrieve **all** available HARPS data products regardless of the associated survey towards ``HD203608`` is given by the following query:
 
 .. doctest-remote-data::
 
@@ -115,9 +115,9 @@ You can also query a specific instrument using the same method (e.g., ``HARPS``)
 
 .. tip:: 
 
-    Keep in mind that the definition of a ``survey`` (also referred to as a **collection** in the ESO Science Archive) is not the same as the definition of an **instrument**. The ``instrument_name`` refers to the actual hardware that acquired the data (e.g., ``HARPS``, ``MUSE``), whereas the ``obs_collection`` identifies the scientific program, survey, or processing pipeline associated with the data product. In many cases, survey names match the instrument name (e.g., ``HARPS``, ``MUSE``, ``XSHOOTER``), which typically indicates **products processed and curated by ESO**. However, when the collection name differs (e.g., ``AMBRE``, ``GAIAESO``, ``PHANGS``), it usually denotes **community-contributed data** from large collaborations or specific science teams.
+    Keep in mind that the definition of a ``survey`` (also referred to as a **collection** in the ESO Science Archive) is not the same as the definition of an **instrument**. The ``instrument_name`` refers to the actual hardware that acquired the data (e.g., ``HARPS``, ``MUSE``), whereas the ``obs_collection`` identifies the scientific programme, survey, or processing pipeline associated with the data product. In many cases, survey names match the instrument name (e.g., ``HARPS``, ``MUSE``, ``XSHOOTER``), which typically indicates **products processed and curated by ESO**. However, when the collection name differs (e.g., ``AMBRE``, ``GAIAESO``, ``PHANGS``), it usually denotes **community-contributed data** from large collaborations or specific science teams.
 
-    So, for example, querying for ``eso.query_surveys(column_filters={"instrument_name": "HARPS"})`` will return all products taken with the HARPS instrument, across all programs and collections. In contrast, filtering on ``eso.query_surveys(surveys="HARPS"}`` will return only the `HARPS data reduced by ESO <https://doi.eso.org/10.18727/archive/33>`_. You can inspect the collection for each result via the ``obs_collection`` column in your results table.
+    So, for example, querying for ``eso.query_surveys(column_filters={"instrument_name": "HARPS"})`` will return all products taken with the HARPS instrument, across all programmes and collections. In contrast, filtering on ``eso.query_surveys(surveys="HARPS")`` will return only the `HARPS data reduced by ESO <https://doi.eso.org/10.18727/archive/33>`_. You can inspect the collection for each result via the ``obs_collection`` column in your results table.
 
 Download Data
 =============
@@ -127,7 +127,7 @@ To download the data returned by the query, you can use the :meth:`~astroquery.e
 .. doctest-remote-data::
     >>> eso.retrieve_data(table["dp_id"])
 
-The ``data_files`` points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
+The ``data_files`` list points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
 .. doctest-skip::
     >>> data_files = eso.retrieve_data(table["dp_id"], destination="./eso_data/")

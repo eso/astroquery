@@ -3,7 +3,7 @@
 Authenticated Access (login)
 ****************************
 
-Most datasets in the ESO Science Archive are publicly available and can be downloaded anonymously without requiring authentication. However, access to proprietary datasets—such as those under active proprietary periods—is restricted to authorized users (e.g., PIs of observing programs and their designated delegates). These users must authenticate via the `ESO User Portal <https://www.eso.org/UserPortal>`_.
+Most datasets in the ESO Science Archive are publicly available and can be downloaded anonymously without requiring authentication. However, access to proprietary datasets—such as those under active proprietary periods—is restricted to authorised users (e.g., PIs of observing programmes and their designated delegates). These users must authenticate via the `ESO User Portal <https://www.eso.org/UserPortal>`_.
 
 Authentication is handled using the :meth:`~astroquery.query.QueryWithLogin.login` method. This command initiates a secure login session via the ESO Single Sign-On (SSO) service. It integrates with the `keyring <https://pypi.org/project/keyring>`_ module to securely store your password in your system’s credential manager. After the first login, you should not need to re-enter your credentials for subsequent sessions on the same machine.
 

@@ -59,7 +59,7 @@ The following example demonstrates how to query the ``ist.muse`` table for raw d
     ...             AND moon_illu < 30
     ...             AND dimm_fwhm_avg < 1.0
     ...             AND exptime > 100
-    ...             AND lst between 0 and 6   
+    ...             AND lst between 0 and 6
     ...          """
     >>> result = eso.query_tap_service(query)
     >>> result
@@ -100,7 +100,7 @@ To download the data returned by the query, you can use the :meth:`~astroquery.e
 .. doctest-remote-data::
     >>> eso.retrieve_data(table["dp_id"])
 
-The ``data_files`` points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
+The ``data_files`` list points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
 .. doctest-skip::
     >>> data_files = eso.retrieve_data(table["dp_id"], destination="./eso_data/")

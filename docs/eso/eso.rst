@@ -9,7 +9,7 @@ Quick Start
 
 This quick start example shows how to use the ``astroquery.eso`` interface to query the ESO
 Science Archive for both raw and reduced `MUSE <https://www.eso.org/sci/facilities/develop/instruments/muse.html>`_ 
-observations of the nearby galaxy `NGC 300 <https://simbad.u-strasbg.fr/simbad/sim-id?Ident=NGC+++300>`_, 
+observations of the nearby galaxy `NGC300 <https://simbad.u-strasbg.fr/simbad/sim-id?Ident=NGC+++300>`_, 
 and how to download the corresponding data products using their dataset
 identifiers (``dp_id``).
 
@@ -84,7 +84,7 @@ The `ESO Science Archive Facility (SAF) <https://archive.eso.org>`_ is one of th
 Ways to Access the Archive
 --------------------------
 
-Access to data follows ESO’s standard data policy: the Principal Investigator (PI) of an observing program has exclusive access to their data during a proprietary period (typically one year), after which the data become publicly available. See the `ESO Data Access Policy <https://archive.eso.org/cms/eso-data-access-policy.html>`_ and `FAQ <https://archive.eso.org/cms/faq.html?q=proprietary>`_ for more information. Browsing the archive does not require authentication, but login is necessary to access proprietary datasets. Use of ESO archival data should be acknowledged in all publications.
+Access to data follows ESO’s standard data policy: the Principal Investigator (PI) of an observing programme has exclusive access to their data during a proprietary period (typically one year), after which the data become publicly available. See the `ESO Data Access Policy <https://archive.eso.org/cms/eso-data-access-policy.html>`_ and `FAQ <https://archive.eso.org/cms/faq.html?q=proprietary>`_ for more information. Browsing the archive does not require authentication, but login is necessary to access proprietary datasets. Use of ESO archival data should be acknowledged in all publications.
 
 There are multiple ways to access the archive:
 

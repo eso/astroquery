@@ -20,7 +20,7 @@ This will remove all cached ESO queries and downloaded metadata files. Data prod
 Using Correct ``column_filters``
 ================================
 
-If your query fails or silently returns no results, it might be because you're using column names that are **accepted in the ESO web interface (WDB)** but **not supported by the TAP/ADQL interface** that now is used within ``astroquery.eso``. A common case involves using ``stime`` and ``etime``, which are not valid TAP fields. Instead, use ``exp_start``, the TAP-compliant column representing the observation start time. This field supports SQL-style date filtering.
+If your query fails or silently returns no results, it might be because you're using column names that are **accepted in the ESO web interface (WDB)** but **not supported by the TAP/ADQL interface** that is now used within ``astroquery.eso``. A common case involves using ``stime`` and ``etime``, which are not valid TAP fields. Instead, use ``exp_start``, the TAP-compliant column representing the observation start time. This field supports SQL-style date filtering.
 
 Below are examples of invalid filter usage and their corrected TAP-compatible versions.
 

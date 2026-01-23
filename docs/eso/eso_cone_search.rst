@@ -91,7 +91,7 @@ To download the data returned by the query, you can use the :meth:`~astroquery.e
 .. doctest-remote-data::
     >>> eso.retrieve_data(table["dp_id"])
 
-The ``data_files`` points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
+The ``data_files`` list points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
 .. doctest-skip::
     >>> data_files = eso.retrieve_data(table["dp_id"], destination="./eso_data/")

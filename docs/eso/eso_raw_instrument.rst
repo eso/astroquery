@@ -6,7 +6,7 @@ Query for Raw Data (Instrument-Specific)
 .. note:: 
     The `astroquery.eso` module provides several ways to search for data in the ESO Science Archive for raw data. This section focuses on the **instrument-specific query interface** for raw data :meth:`~astroquery.eso.EsoClass.query_instrument`, while in another section we describe **generic queries** using :meth:`~astroquery.eso.EsoClass.query_main`. 
 
-In many cases, you will want to query the ESO Archive **for data from a specific instrument**. This is exactly what the :meth:`~astroquery.eso.EsoClass.query_instrument` method is designed for. It allows you to search instrument-specific tables, which expose metadata fields and filters unique to each instrument. Internally, this method queries the corresponding instrument table (e.g ``ist.muse``) via ESO's `TAP service <https://archive.eso.org/programmatic/#TAP>`_. This approach is ideal when you need precise control over your query, such as filtering by instrument configuration, mode, or observational setup.
+In many cases, you will want to query the ESO Archive **for data from a specific instrument**. This is exactly what the :meth:`~astroquery.eso.EsoClass.query_instrument` method is designed for. It allows you to search instrument-specific tables, which expose metadata fields and filters unique to each instrument. Internally, this method queries the corresponding instrument table (e.g., ``ist.muse``) via ESO's `TAP service <https://archive.eso.org/programmatic/#TAP>`_. This approach is ideal when you need precise control over your query, such as filtering by instrument configuration, mode, or observational setup.
 
 Available Instruments
 =====================
@@ -75,7 +75,7 @@ The output includes column names, data types, units, and, where applicable, ``xt
 Query with Constraints
 ======================
 
-Once the available query columns have been inspected, you can construct a constrained query to retrieve relevant datasets. For example, suppose you want to retrieve MIDI observations of the target ``NGC 4151`` that were taken between ``2008-01-01`` and ``2009-05-12``.
+Once the available query columns have been inspected, you can construct a constrained query to retrieve relevant datasets. For example, suppose you want to retrieve MIDI observations of the target ``NGC4151`` that were taken between ``2008-01-01`` and ``2009-05-12``.
 
 The ``column_filters`` dictionary allows you to specify conditions for individual columns, using ADQL-compatible expressions under the hood. In this case, the filters apply to:
 
@@ -115,21 +115,20 @@ The ``columns`` argument controls which fields are returned in the results table
 
     .. doctest-remote-data::
 
-        table = eso.query_main(column_filters={"object": "NGC 3627"})
+        >>> table = eso.query_main(column_filters={"object": "NGC3627"})
 
     Use ``query_instrument`` when you want a more **refined, instrument-specific search**, applying filters that are only available for a particular instrument (e.g. instrument modes, configurations, or ambient conditions).
 
     .. doctest-remote-data::
 
-        column_filters = {
-            "dp_cat": "SCIENCE",           # Science data only
-            "ins_opt1_name": "HIGH_SENS",  # High sensitivity mode
-            "night_flag": "night",         # Nighttime observations only
-            "moon_illu": "< 0",            # No moon (below horizon)
-            "lst": "between 0 and 6"       # Local sidereal time early in the night
-        }
-
-        table = eso.query_instrument("midi", column_filters=column_filters)
+        >>> column_filters = {
+        ...     "dp_cat": "SCIENCE",           # Science data only
+        ...     "ins_opt1_name": "HIGH_SENS",  # High sensitivity mode
+        ...     "night_flag": "night",         # Nighttime observations only
+        ...     "moon_illu": "< 0",            # No moon (below horizon)
+        ...     "lst": "between 0 and 6"       # Local sidereal time early in the night
+        ... }
+        >>> table = eso.query_instrument("midi", column_filters=column_filters)
 
 Download Data
 =============
@@ -139,7 +138,7 @@ To download the data returned by the query, you can use the :meth:`~astroquery.e
 .. doctest-remote-data::
     >>> eso.retrieve_data(table["dp_id"])
 
-The ``data_files`` points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
+The ``data_files`` list points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
 .. doctest-skip::
     >>> data_files = eso.retrieve_data(table["dp_id"], destination="./eso_data/")

@@ -71,11 +71,11 @@ We start by inspecting the available columns that can be queried by :meth:`~astr
 Query with Constraints (Specific Instrument)
 ============================================
 
-Now that we know which of the columns are available for queries, we can retrieve all-sky images from the ``APICAM`` instrument, with constraints on the ``LUMINANCE`` filter, on for a single night (i.e. 2019-04-26):
+Now that we know which of the columns are available for queries, we can retrieve all-sky images from the ``APICAM`` instrument, with constraints on the ``LUMINANCE`` filter for a single night (i.e. 2019-04-26):
 
 .. doctest-remote-data::
 
-    >>> eso.maxrec = -1    # Return all results without truncation
+    >>> eso.ROW_LIMIT = -1    # Return all results without truncation
     >>> table = eso.query_main(
     ...                     column_filters={
     ...                         "instrument": "APICAM",
@@ -113,11 +113,11 @@ Alternatively, if you want to retrieve all available raw data products with the 
     ...                         "exp_start": "between '2019-04-26' and '2019-04-27'"}
     ...                     )
 
-Another useful example is to query for all raw data for a specific target, such as ``NGC 3627``:
+Another useful example is to query for all raw data for a specific target, such as ``NGC3627``:
 
 .. doctest-remote-data::
 
-    >>> table = eso.query_main(column_filters={"object": "NGC 3627"})
+    >>> table = eso.query_main(column_filters={"object": "NGC3627"})
 
 .. tip::
 
@@ -125,21 +125,20 @@ Another useful example is to query for all raw data for a specific target, such 
 
     .. doctest-remote-data::
 
-        table = eso.query_main(column_filters={"object": "NGC 3627"})
+        >>> table = eso.query_main(column_filters={"object": "NGC3627"})
 
     Use :meth:`~astroquery.eso.EsoClass.query_instrument` when you want a more **refined, instrument-specific search** (e.g. instrument modes, configurations, or ambient conditions).
 
     .. doctest-remote-data::
 
-        column_filters = {
-            "dp_cat": "SCIENCE",           # Science data only
-            "ins_opt1_name": "HIGH_SENS",  # High sensitivity mode
-            "night_flag": "night",         # Nighttime observations only
-            "moon_illu": "< 0",            # No moon (below horizon)
-            "lst": "between 0 and 6"       # Local sidereal time early in the night
-        }
-
-        table = eso.query_instrument("midi", column_filters=column_filters)
+        >>> column_filters = {
+        ...     "dp_cat": "SCIENCE",           # Science data only
+        ...     "ins_opt1_name": "HIGH_SENS",  # High sensitivity mode
+        ...     "night_flag": "night",         # Nighttime observations only
+        ...     "moon_illu": "< 0",            # No moon (below horizon)
+        ...     "lst": "between 0 and 6"       # Local sidereal time early in the night
+        ... }
+        >>> table = eso.query_instrument("midi", column_filters=column_filters)
 
 Download Data
 =============
@@ -149,7 +148,7 @@ To download the data returned by the query, you can use the :meth:`~astroquery.e
 .. doctest-remote-data::
     >>> eso.retrieve_data(table["dp_id"])
 
-The ``data_files`` points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
+The ``data_files`` list points to the decompressed dataset filenames that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
 .. doctest-skip::
     >>> data_files = eso.retrieve_data(table["dp_id"], destination="./eso_data/")

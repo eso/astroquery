@@ -22,7 +22,7 @@ Assuming you have already performed a query (e.g., using :meth:`~astroquery.eso.
     ['/Users/foobar/.astropy/cache/astroquery/Eso/MIDI.2007-02-07T07:01:51.000.fits',
      '/Users/foobar/.astropy/cache/astroquery/Eso/MIDI.2007-02-07T07:02:49.000.fits']
 
-The file names, returned in data_files, points to the decompressed datasets
+The file names returned in ``data_files`` point to the decompressed datasets
 (without the .Z extension) that have been locally downloaded. The default location of the decompressed datasets can be adjusted by providing a ``destination`` keyword in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
 .. doctest-skip::
@@ -31,12 +31,13 @@ The file names, returned in data_files, points to the decompressed datasets
 By default, if a requested dataset is already found, it is not downloaded again from the archive.
 To force the retrieval of data that are present in the destination directory, use ``continuation=True`` in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
-When downloading datasets, you can optionally retrieve associated calibration files by using the with_calib argument. This allows you to obtain either raw or processed calibrations in addition to the science files.
+When downloading datasets, you can optionally retrieve associated calibration files by using the ``with_calib`` argument. This allows you to obtain either raw or processed calibrations in addition to the science files.
 
 Available options:
-	•	None (default): Download only the requested science data.
-	•	``"raw"``: Include raw calibration files associated with each dataset.
-	•	``"processed"``: Include processed calibration files (i.e., reduced/calibrated).
+
+- ``None`` (default): Download only the requested science data.
+- ``"raw"``: Include raw calibration files associated with each dataset.
+- ``"processed"``: Include processed calibration files (i.e., reduced/calibrated).
 
 .. doctest-skip::
 

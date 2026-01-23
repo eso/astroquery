@@ -139,7 +139,7 @@ We can check the available columns to search in the query.
     282296
      [astroquery.eso.core]
 
-And now, us :meth:`~astroquery.eso.EsoClass.query_apex_quicklooks` to query for the APEX Quick Look products using the APEX proposal ID (``project_id``) we retrieved from the previous query.
+And now, use :meth:`~astroquery.eso.EsoClass.query_apex_quicklooks` to query for the APEX Quick Look products using the APEX proposal ID (``project_id``) we retrieved from the previous query.
 
 .. doctest-remote-data::
 
