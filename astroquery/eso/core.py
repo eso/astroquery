@@ -156,8 +156,14 @@ class EsoClass(QueryWithLogin):
         finally:
             self.ROW_LIMIT = tmpvar
 
-    def _tap_url(self) -> str:
-        url = conf.tap_obs_url
+    def _tap_url(self, which_tap: str = "tap_obs") -> str:
+        which_tap = which_tap.lower()
+        if which_tap == "tap_obs":
+            url = conf.tap_obs_url
+        elif which_tap == "tap_cat": 
+            url = conf.tap_cat_url
+        else:
+            raise ValueError("which_tap must be 'tap_obs' or 'tap_cat'.")
         return url
 
     def _authenticate(self, *, username: str, password: str) -> bool:
@@ -280,9 +286,6 @@ class EsoClass(QueryWithLogin):
         return table_with_an_extra_row[:self.ROW_LIMIT]
 
     def tap(self, authenticated: bool = False, *, which_tap: str = "tap_obs") -> TAPService:
-        which_tap = which_tap.lower()
-        if which_tap not in ("tap_obs", "tap_cat"):
-            raise ValueError("which_tap must be 'tap_obs' or 'tap_cat'.")
 
         if authenticated and not self.authenticated():
             raise LoginError(
@@ -294,7 +297,7 @@ class EsoClass(QueryWithLogin):
                 "<eso_class_instance>.login(username=<your_username>"
             )
 
-        tap_url = self._tap_url() if which_tap == "tap_obs" else conf.tap_cat_url
+        tap_url = self._tap_url(which_tap) 
         log.debug(f"Querying from {tap_url}")
         if authenticated:
             h = self._get_auth_header()
