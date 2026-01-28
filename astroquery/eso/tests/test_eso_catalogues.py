@@ -50,7 +50,7 @@ DATA_FILES = {
                         "LEFT OUTER JOIN TAP_SCHEMA.keys AS k ON ref.table_name = k.from_table "
                         "LEFT OUTER JOIN TAP_SCHEMA.key_columns AS kc ON k.key_id = kc.key_id "
                         "WHERE schema_name='safcat'": 
-            "query_catalogues_all_versions.csv",
+            "query_list_catalogues_all_versions.csv",
         }
 }
 
