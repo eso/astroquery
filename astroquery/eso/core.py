@@ -276,8 +276,8 @@ class EsoClass(QueryWithLogin):
             if self.ROW_LIMIT < sys.maxsize:
                 row_limit_plus_one = self.ROW_LIMIT + 1
 
-                table_with_an_extra_row = tap.search(query=query_str, maxrec=row_limit_plus_one).to_table()
-                self._maybe_warn_about_table_length(table_with_an_extra_row, row_limit_plus_one)
+            table_with_an_extra_row = tap.search(query=query_str, maxrec=row_limit_plus_one).to_table()
+            self._maybe_warn_about_table_length(table_with_an_extra_row, row_limit_plus_one)
         except DALQueryError:
             log.error(message(query_str))
         except DALFormatError as e:
