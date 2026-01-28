@@ -157,7 +157,6 @@ class EsoClass(QueryWithLogin):
             self.ROW_LIMIT = tmpvar
 
     def _tap_url(self, which_tap: str = "tap_obs") -> str:
-        which_tap = which_tap.lower()
         if which_tap == "tap_obs":
             url = conf.tap_obs_url
         elif which_tap == "tap_cat": 
@@ -299,14 +298,12 @@ class EsoClass(QueryWithLogin):
                 "<eso_class_instance>.login(username=<your_username>"
             )
 
-        tap_url = self._tap_url(which_tap) 
-        log.debug(f"Querying from {tap_url}")
         if authenticated:
             h = self._get_auth_header()
             self._session.headers = {**self._session.headers, **h}
-            tap_service = TAPService(tap_url, session=self._session)
+            tap_service = TAPService(self._tap_url(which_tap), session=self._session)
         else:
-            tap_service = TAPService(tap_url)
+            tap_service = TAPService(self._tap_url(which_tap))
 
         return tap_service
 
@@ -463,7 +460,7 @@ class EsoClass(QueryWithLogin):
     def _query_on_allowed_values(
         self,
         user_params: _UserParams,
-        query_func=None,
+        which_tap="tap_obs",
     ) -> Union[Table, int, str, None]:
         if user_params.print_help:
             return self._list_column(user_params.table_name,
@@ -473,14 +470,12 @@ class EsoClass(QueryWithLogin):
 
         raise_if_coords_not_valid(user_params.cone_ra, user_params.cone_dec, user_params.cone_radius)
 
-        query = _build_adql_string(user_params)
+        query_str = _build_adql_string(user_params)
 
         if user_params.get_query_payload:
-            return query
+            return query_str
 
-        if query_func is None:
-            query_func = self.query_tap
-        ret_table = query_func(query=query, authenticated=user_params.authenticated)
+        ret_table = self.query_tap(query_str, which_tap=which_tap, authenticated=user_params.authenticated)
         return list(ret_table[0].values())[0] if user_params.count_only else ret_table
 
     @deprecated_renamed_argument(('open_form', 'cache'), (None, None),
@@ -569,7 +564,7 @@ class EsoClass(QueryWithLogin):
                                   print_help=help,
                                   authenticated=authenticated,
                                   )
-        t = self._query_on_allowed_values(user_params=user_params)
+        t = self._query_on_allowed_values(user_params)
         t = _reorder_columns(t, DEFAULT_LEAD_COLS_PHASE3)
         return t
 
@@ -1203,6 +1198,7 @@ class EsoClass(QueryWithLogin):
         table_name = f"{schema}.{catalogue}"
 
         with self._temporary_row_limit(ROW_LIMIT):
+            which_tap = "tap_cat"
             user_params = _UserParams(table_name=table_name,
                                       column_name=None,
                                       allowed_values=None,
@@ -1216,10 +1212,10 @@ class EsoClass(QueryWithLogin):
                                       get_query_payload=get_query_payload,
                                       print_help=help,
                                       authenticated=authenticated,
-                                      which_tap="tap_cat"
+                                      which_tap=which_tap
                                       )
-            query_func = functools.partial(self.query_tap, which_tap="tap_cat")
-            return self._query_on_allowed_values(user_params, query_func=query_func)
+            
+            return self._query_on_allowed_values(user_params, which_tap=which_tap)
 
 
 Eso = EsoClass()
