@@ -3,7 +3,6 @@ utils.py: helper functions for the astropy.eso module
 """
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
-
 from astropy.table import Table
 
 DEFAULT_LEAD_COLS_RAW = ['object', 'ra', 'dec', 'dp_id', 'date_obs', 'prog_id']

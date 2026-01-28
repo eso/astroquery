@@ -7,52 +7,13 @@ ESO Astroquery Module tests
 European Southern Observatory (ESO)
 
 """
-import os
-import shutil
-import sys
 
+from collections import Counter
 import pytest
-import pyvo
+
 from astropy.table import Table
-import astropy.io.ascii
-
-from astroquery.utils.mocks import MockResponse
-from ...eso import Eso
-from ...eso.utils import _UserParams, \
-    _build_adql_string, _adql_sanitize_op_val, _reorder_columns, \
-    DEFAULT_LEAD_COLS_RAW
-from ...exceptions import NoResultsWarning, MaxResultsWarning
-
-DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
-EXPECTED_MAXREC = 1000
-MONKEYPATCH_TABLE_LENGTH = 50
-
-
-def data_path(filename):
-    return os.path.join(DATA_DIR, filename)
-
-
-DATA_FILES = {
-    'ADQL':
-        {
-            "SELECT table_name FROM TAP_SCHEMA.tables as ref "
-                        "LEFT OUTER JOIN TAP_SCHEMA.keys AS k ON ref.table_name = k.from_table "
-                        "LEFT OUTER JOIN TAP_SCHEMA.key_columns AS kc ON k.key_id = kc.key_id "
-                        "WHERE schema_name='safcat'"
-                        "AND cat_id IN ( "
-                            "SELECT t1.cat_id "
-                            "FROM TAP_SCHEMA.tables t1 "
-                            "LEFT JOIN TAP_SCHEMA.tables t2 ON (t1.title = t2.title AND t1.version < t2.version) "
-                            "WHERE t2.title IS NULL)": 
-            "query_list_catalogues_latest_versions.csv",
-            
-            "SELECT table_name FROM TAP_SCHEMA.tables as ref "
-                        "LEFT OUTER JOIN TAP_SCHEMA.keys AS k ON ref.table_name = k.from_table "
-                        "LEFT OUTER JOIN TAP_SCHEMA.key_columns AS kc ON k.key_id = kc.key_id "
-                        "WHERE schema_name='safcat'": 
-            "query_catalogues_all_versions.csv",
-        }
-}
+from astroquery.exceptions import NoResultsWarning, MaxResultsWarning
+from astroquery.eso import Eso
 
 catalogue_list = ['AMBRE_V1',
  'ATLASGAL_V1',
@@ -271,22 +232,35 @@ catalogue_list_all = ['AMBRE_V1',
  'vmc_dr7_yjks_back_V1',
  'vmc_dr7_yjks_varCat_V3']
 
-def monkey_tap(query, **kwargs):
-    _ = kwargs
-    table_file = data_path(DATA_FILES['ADQL'][query])
-    table = astropy.io.ascii.read(table_file, format='csv', header_start=0, data_start=1)
-    return table
+@pytest.mark.remote_data
+class TestEso:
+    @pytest.mark.filterwarnings("ignore::pyvo.dal.exceptions.DALOverflowWarning")
+    def test_list_instruments(self):
+        eso = Eso()
+        t = eso.list_instruments(all_versions=False)
+        t_all = eso.list_instruments(all_versions=True)
+        lt = len(t)
+        lt_all = len(t_all)
+        
+        assert isinstance(t, list), f"Expected type {type(list)}; Obtained {type(t)}"
+        assert lt > 0, "Expected non-empty list of instruments"
+        assert set (t) <= set(catalogue_list), "Expected different list of instruments"
+        assert set(t_all) <= set(catalogue_list_all), "Expected different list of instruments"
+        assert lt_all >= lt, "Expected all_versions=True to return equal or more instruments than all_versions=False"
 
-def test_list_catalogues_latest_versions(monkeypatch):
-    eso = Eso()
-    monkeypatch.setattr(eso, 'query_tap', monkey_tap)
-    saved_list = eso.list_catalogues(all_versions=False)
-    assert isinstance(saved_list, list)
-    assert set(catalogue_list) <= set(saved_list)
+    @pytest.mark.filterwarnings("ignore::pyvo.dal.exceptions.DALOverflowWarning")
+    @pytest.mark.parametrize('catalogue', catalogue_list)
+    def test_query_catalogue(self, catalogue):
+        eso = Eso()
+        t = eso.query_catalogue(catalogue, ROW_LIMIT=5)
 
-def test_list_catalogues_all_versions(monkeypatch):
-    eso = Eso()
-    monkeypatch.setattr(eso, 'query_tap', monkey_tap)
-    saved_list = eso.list_catalogues(all_versions=True)
-    assert isinstance(saved_list, list)
-    assert len(saved_list) >= len(catalogue_list_all)
+        assert isinstance(t, Table), f"Expected type {type(Table)}; Obtained {type(t)}"
+        assert len(t) <= 5, f"Expected max 5 records; Obtained {len(t)}"
+        assert len(t) > 0, "Expected non-empty table"
+
+    @pytest.mark.parametrize('catalogue', catalogue_list)
+    def test_query_catalogue_help(self, catalogue):
+        eso = Eso()
+        eso.query_catalogue(catalogue, help=True)
+
+        
