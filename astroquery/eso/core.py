@@ -478,8 +478,6 @@ class EsoClass(QueryWithLogin):
         ret_table = query_func(query=query, authenticated=user_params.authenticated)
         return list(ret_table[0].values())[0] if user_params.count_only else ret_table
     
-    @deprecated_renamed_argument(('open_form', 'cache'), (None, None),
-                                 since=['0.4.12', '0.4.12'])
     def query_surveys(
             self,
             surveys: Union[List[str], str] = None, *,
