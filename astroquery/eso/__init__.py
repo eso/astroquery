@@ -16,9 +16,9 @@ class Conf(_config.ConfigNamespace):
     username = _config.ConfigItem(
         "",
         'Optional default username for ESO archive.')
-    tap_url = _config.ConfigItem(
+    tap_obs_url = _config.ConfigItem(
         "https://archive.eso.org/tap_obs",
-        'URL for TAP queries.')
+        'URL for TAP observation queries.')
     tap_cat_url = _config.ConfigItem(
         "https://archive.eso.org/tap_cat",
         'URL for TAP catalogue queries.')

@@ -157,7 +157,7 @@ class EsoClass(QueryWithLogin):
             self.ROW_LIMIT = tmpvar
 
     def _tap_url(self) -> str:
-        url = conf.tap_url
+        url = conf.tap_obs_url
         return url
 
     def _authenticate(self, *, username: str, password: str) -> bool:
@@ -269,11 +269,7 @@ class EsoClass(QueryWithLogin):
             row_limit_plus_one = self.ROW_LIMIT
             if self.ROW_LIMIT < sys.maxsize:
                 row_limit_plus_one = self.ROW_LIMIT + 1
-                table_with_an_extra_row = tap.search(query=query_str,
-                                                     maxrec=row_limit_plus_one).to_table()
-            else:
-                table_with_an_extra_row = tap.search(query=query_str).to_table()
-            self._maybe_warn_about_table_length(table_with_an_extra_row, row_limit_plus_one)
+                table_with_an_extra_row = tap.search(query=query_str, maxrec=row_limit_plus_one).to_table()
         except DALQueryError:
             log.error(message(query_str))
         except DALFormatError as e:
@@ -554,7 +550,7 @@ class EsoClass(QueryWithLogin):
               would be issued to the TAP service given the specified arguments.
         """
         _ = open_form, cache  # make explicit that we are aware these arguments are unused
-        column_filters = dict(column_filters) if column_filters else {}
+        column_filters = column_filters if column_filters else {}
         user_params = _UserParams(table_name=_EsoNames.phase3_table,
                                   column_name=_EsoNames.phase3_surveys_column,
                                   allowed_values=surveys,

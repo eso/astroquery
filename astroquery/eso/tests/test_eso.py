@@ -257,7 +257,7 @@ def test_calselector_multipart(monkeypatch, tmp_path):
     assert datasets[0] not in result and datasets[1] not in result
 
 
-def test_tap_url():
+def test_tap_obs_url():
     prod_url = "https://archive.eso.org/tap_obs"
     eso_instance = Eso()
     assert eso_instance._tap_url() == prod_url
