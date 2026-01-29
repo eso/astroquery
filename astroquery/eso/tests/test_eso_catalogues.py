@@ -51,6 +51,9 @@ DATA_FILES = {
                         "LEFT OUTER JOIN TAP_SCHEMA.key_columns AS kc ON k.key_id = kc.key_id "
                         "WHERE schema_name='safcat'": 
             "query_list_catalogues_all_versions.csv",
+
+            "SELECT * FROM KiDS_DR4_1_ugriZYJHKs_cat_fits": 
+            "kids_dr4_sample.csv",
         }
 }
 
@@ -290,3 +293,10 @@ def test_list_catalogues_all_versions(monkeypatch):
     saved_list = eso.list_catalogues(all_versions=True)
     assert isinstance(saved_list, list)
     assert len(saved_list) >= len(catalogue_list_all)
+
+def test_query_catalogues(monkeypatch):
+    eso = Eso()
+    monkeypatch.setattr(eso, 'query_tap', monkey_tap)
+    result = eso.query_catalogue("KiDS_DR4_1_ugriZYJHKs_cat_fits", ROW_LIMIT=5)
+    assert isinstance(result, Table)
+    assert len(result) <= 5
