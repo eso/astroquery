@@ -17,8 +17,17 @@ identifiers (``dp_id``).
 
     >>> from astroquery.eso import Eso
     >>> eso = Eso()
-    >>> table_raw = eso.query_main("MUSE", column_filters={"object": "NGC300"})
-    >>> table_reduced = eso.query_surveys("MUSE", column_filters={"target_name": "NGC300"})
+
+    >>> from astropy.coordinates import SkyCoord 
+    >>> import astropy.units as u 
+    >>> coords = SkyCoord.from_name("NGC 300") 
+    >>> ra = coords.ra.value
+    >>> dec = coords.dec.value
+    >>> r = (30*u.arcsec).to(u.deg).value
+
+    >>> table_raw = eso.query_main("MUSE", cone_ra=ra, cone_dec=dec, cone_radius=r)
+    >>> table_reduced = eso.query_surveys("MUSE", cone_ra=ra, cone_dec=dec, cone_radius=r)
+    
     >>> eso.retrieve_data(table_raw["dp_id"])
     >>> eso.retrieve_data(table_reduced["dp_id"])
 

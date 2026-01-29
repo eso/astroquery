@@ -1,6 +1,6 @@
 
 ****************************
-Authenticated Access (login)
+Authenticated Access (Login)
 ****************************
 
 Most datasets in the ESO Science Archive are publicly available and can be downloaded anonymously without requiring authentication. However, access to proprietary datasets—such as those under active proprietary periods—is restricted to authorised users (e.g., PIs of observing programmes and their designated delegates). These users must authenticate via the `ESO User Portal <https://www.eso.org/UserPortal>`_.

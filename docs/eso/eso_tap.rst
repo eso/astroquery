@@ -42,7 +42,7 @@ The following example demonstrates how to query the ``dbo.raw`` table for raw da
     ...         WHERE object = 'NGC300'
     ...             AND instrument = 'muse'
     ...          """
-    >>> result = eso.query_tap_service(query)
+    >>> result = eso.query_tap(query)
     >>> result
 
 Query for Raw Data (Instrument-Specific)
@@ -61,7 +61,7 @@ The following example demonstrates how to query the ``ist.muse`` table for raw d
     ...             AND exptime > 100
     ...             AND lst between 0 and 6
     ...          """
-    >>> result = eso.query_tap_service(query)
+    >>> result = eso.query_tap(query)
     >>> result
 
 Query for Reduced Data Products
@@ -79,7 +79,7 @@ The following example queries the ``ivoa.ObsCore`` table to find fully calibrate
     ...              AND multi_ob = 'M' 
     ...              AND s_pixel_scale < 0.2
     ...          """
-    >>> result = eso.query_tap_service(query)
+    >>> result = eso.query_tap(query)
     >>> result
     <Table length=15>
     obs_collection calib_level multi_ob filter s_pixel_scale instrument_name
