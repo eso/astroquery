@@ -264,11 +264,12 @@ class EsoClass(QueryWithLogin):
         table_with_an_extra_row = Table()
 
         def message(query_str):
+            which_tap = tap.baseurl.split("/")[-1]
             return (f"Error executing the following query:\n\n"
                     f"{query_str}\n\n"
                     "See examples here: https://archive.eso.org/tap_obs/examples\n\n"
                     f"For maximum query freedom use the query_tap method:\n\n"
-                    f' >>> Eso().query_tap( "{query_str}" )\n\n')
+                    f' >>> Eso().query_tap( "{query_str}", which_tap="{which_tap}")\n\n')
 
         try:
             row_limit_plus_one = self.ROW_LIMIT
