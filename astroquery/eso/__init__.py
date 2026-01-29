@@ -9,10 +9,12 @@ class Conf(_config.ConfigNamespace):
     """
     Configuration parameters for `astroquery.eso`.
     """
-
+    MAX_ROW_LIMIT = _config.ConfigItem(
+        15000000,
+        'Maximum number of rows allowed by the TAP service.')
     ROW_LIMIT = _config.ConfigItem(
         1000,
-        'Maximum number of rows returned (set to -1 for unlimited).')
+        'Maximum number of rows returned (set to -1 for maximum allowed via TAP service).')
     username = _config.ConfigItem(
         "",
         'Optional default username for ESO archive.')

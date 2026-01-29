@@ -96,7 +96,7 @@ def unlimited_maxrec(func):
 
         tmpvar = self.ROW_LIMIT
         try:
-            self.ROW_LIMIT = sys.maxsize
+            self.ROW_LIMIT = conf.MAX_ROW_LIMIT
             result = func(self, *args, **kwargs)
         finally:
             self.ROW_LIMIT = tmpvar
@@ -136,9 +136,11 @@ class EsoClass(QueryWithLogin):
         # type check
         if not (value is None or isinstance(value, int)):
             raise TypeError(f"ROW_LIMIT attribute must be of type int or None; found {type(value)}")
+        elif value > conf.MAX_ROW_LIMIT:
+            raise ValueError(f"ROW_LIMIT cannot be higher than {conf.MAX_ROW_LIMIT}; found {value}")
 
         if value is None or value < 1:
-            mr = sys.maxsize
+            mr = conf.MAX_ROW_LIMIT
         else:
             mr = value
 
@@ -446,7 +448,7 @@ class EsoClass(QueryWithLogin):
         query_str = (f"SELECT table_name FROM TAP_SCHEMA.tables as ref "
                         "LEFT OUTER JOIN TAP_SCHEMA.keys AS k ON ref.table_name = k.from_table "
                         "LEFT OUTER JOIN TAP_SCHEMA.key_columns AS kc ON k.key_id = kc.key_id "
-                        f"WHERE schema_name='{schema}'")
+                        f"WHERE schema_name='{schema}' ")
 
         if not all_versions:
             query_str += ("AND cat_id IN ( "
