@@ -64,9 +64,9 @@ Cone search for raw data products can be performed using the instrument-specific
 
     >>> table = eso.query_instrument(
     ...             "HAWKI",
-    ...             cone_ra=ra,
-    ...             cone_dec=dec,
-    ...             cone_radius=radius
+    ...             cone_ra=ra.value,
+    ...             cone_dec=dec.value,
+    ...             cone_radius=radius.to(u.deg).value
     ...                           )
 
 Generic Cone Search
@@ -78,9 +78,9 @@ Cone search for raw data products can also be performed using the more generic m
 
     >>> table = eso.query_main(
     ...             "HAWKI",
-    ...             cone_ra=ra,
-    ...             cone_dec=dec,
-    ...             cone_radius=radius
+    ...             cone_ra=ra.value,
+    ...             cone_dec=dec.value,
+    ...             cone_radius=radius.to(u.deg).value
     ...                           )
 
 Download Data

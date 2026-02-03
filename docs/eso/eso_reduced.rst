@@ -66,52 +66,84 @@ As before, list the possible columns in :meth:`~astroquery.eso.EsoClass.query_su
 Query with Constraints (Specific Survey)
 ========================================
 
-Let's assume that we work with the `HARPS survey <https://www.eso.org/rm/api/v1/public/releaseDescriptions/72>`_, and that we are interested in
-target ``HD203608``. The archive can be queried as follows:
+Let's assume that we work with the `HARPS survey <https://www.eso.org/rm/api/v1/public/releaseDescriptions/72>`_. The archive can be queried as follows:
 
 .. doctest-remote-data::
 
-    >>> table = eso.query_surveys(surveys="HARPS", 
-    ...                           column_filters= {"target_name": "HD203608"}
-    ...                          )
+    >>> table = eso.query_surveys(surveys="HARPS")
     >>> table
     <Table length=1000>
-    target_name    s_ra     s_dec              dp_id             proposal_id  abmaglim access_estsize ...   snr    strehl t_exptime     t_max          t_min      t_resolution t_xel
-                deg       deg                                                mag        kbyte      ...                     s           d              d             s            
-    object    float64   float64             object               object    float64      int64      ... float64 float64  float64     float64        float64       float64    int64
-    ----------- --------- --------- --------------------------- ------------- -------- -------------- ... ------- ------- --------- -------------- -------------- ------------ -----
-    HD203608 321.61455 -65.36429 ADP.2014-09-16T11:03:30.940 077.D-0720(A)       --           5261 ...    60.9      --      33.0 53956.24265204 53956.24227009     33.00048    --
-    HD203608 321.61761 -65.36485 ADP.2014-09-16T11:03:31.020 077.D-0720(A)       --           5261 ...    87.0      --    32.999 53953.36835125 53953.36796931    32.999616    --
-    HD203608 321.60594 -65.36528 ADP.2014-09-16T11:03:31.067 077.D-0720(A)       --           5261 ...    73.9      --      33.0 53956.15534682 53956.15496487     33.00048    --
-    ...
-    HD203608 321.61113 -65.37211 ADP.2014-09-16T11:05:14.863 077.D-0720(A)       --           5261 ...    95.2      --    32.999 53954.99642615 53954.99604421    32.999616    --
+    target_name     s_ra     s_dec              dp_id             proposal_id  abmaglim access_estsize ...   snr    strehl t_exptime     t_max          t_min      t_resolution t_xel
+                    deg       deg                                                mag        kbyte      ...                     s           d              d             s            
+    object     float64   float64             object               object    float64      int64      ... float64 float64  float64     float64        float64       float64    int64
+    ------------ --------- --------- --------------------------- ------------- -------- -------------- ... ------- ------- --------- -------------- -------------- ------------ -----
+        HD203608 321.61455 -65.36429 ADP.2014-09-16T11:03:30.940 077.D-0720(A)       --           5261 ...    60.9      --      33.0 53956.24265204 53956.24227009     33.00048    --
+        HD114613  198.0129 -37.80367 ADP.2014-09-16T11:03:30.947 072.C-0488(E)       --           5261 ...   267.2      --   120.002 53765.36393677 53765.36254786   120.001824    --
+        HIP5158  16.50838 -22.45455 ADP.2014-09-16T11:03:30.973 072.C-0488(E)       --           5261 ...    39.3      --   711.599 53946.33177006 53946.32353395   711.599904    --
+            ...       ...       ...                         ...           ...      ...            ... ...     ...     ...       ...            ...            ...          ...   ...
+        HD203608 321.60939 -65.36484 ADP.2014-09-16T11:03:45.713 077.D-0720(A)       --           5261 ...    45.0      --      33.0 53955.11202646 53955.11164451     33.00048    --
+
+Suppose we want both `HARPS survey <https://www.eso.org/rm/api/v1/public/releaseDescriptions/72>`_ and `NIRPS survey <https://www.eso.org/rm/api/v1/public/releaseDescriptions/233>`_ data products.
+
+.. doctest-remote-data::
+
+    >>> table = eso.query_surveys(surveys=["HARPS", "NIRPS"])
+    >>> table
+    <Table length=1000>
+    target_name     s_ra     s_dec              dp_id             proposal_id  abmaglim access_estsize ...   snr    strehl t_exptime     t_max          t_min      t_resolution t_xel
+                    deg       deg                                                mag        kbyte      ...                     s           d              d             s            
+    object     float64   float64             object               object    float64      int64      ... float64 float64  float64     float64        float64       float64    int64
+    ------------ --------- --------- --------------------------- ------------- -------- -------------- ... ------- ------- --------- -------------- -------------- ------------ -----
+        HD203608 321.61455 -65.36429 ADP.2014-09-16T11:03:30.940 077.D-0720(A)       --           5261 ...    60.9      --      33.0 53956.24265204 53956.24227009     33.00048    --
+        HD114613  198.0129 -37.80367 ADP.2014-09-16T11:03:30.947 072.C-0488(E)       --           5261 ...   267.2      --   120.002 53765.36393677 53765.36254786   120.001824    --
+        HIP5158  16.50838 -22.45455 ADP.2014-09-16T11:03:30.973 072.C-0488(E)       --           5261 ...    39.3      --   711.599 53946.33177006 53946.32353395   711.599904    --
+            ...       ...       ...                         ...           ...      ...            ... ...     ...     ...       ...            ...            ...          ...   ...
+        HD203608 321.60939 -65.36484 ADP.2014-09-16T11:03:45.713 077.D-0720(A)       --           5261 ...    45.0      --      33.0 53955.11202646 53955.11164451     33.00048    --
+
+Now we see that this query is limited to 1000 results, so we can increase the row limit to retrieve all matching datasets and limit the columns returned:
+
+.. doctest-remote-data::
+
+    >>> eso.ROW_LIMIT = -1
+    >>> table = eso.query_surveys(surveys=["HARPS", "NIRPS"], 
+    ...                          columns=["target_name", "s_ra", "s_dec", "dp_id", "proposal_id"])
+    >>> table
+    <Table length=376351>
+    target_name      s_ra      s_dec              dp_id             proposal_id  
+                    deg        deg                                              
+        object      float64    float64             object               object    
+    --------------- ---------- --------- --------------------------- --------------
+            HD17051   40.64236 -50.80053 ADP.2014-09-16T11:03:41.583  078.D-0067(A)
+            HD69830  124.59872  -12.6353 ADP.2014-09-16T11:03:41.610  072.C-0488(E)
+            HD63077  116.39514 -34.17365 ADP.2014-09-16T11:03:41.617  076.D-0103(A)
+                ...        ...       ...                         ...            ...
+        TOI-2322 116.961088 -71.00243 ADP.2026-01-13T11:49:12.986   116.2974.001
 
 The returned table has a ``dp_id`` column, which can be used to retrieve the datasets with
-:meth:`~astroquery.eso.EsoClass.retrieve_data`: ``eso.retrieve_data(table["dp_id"][0])``.
+:meth:`~astroquery.eso.EsoClass.retrieve_data`: ``eso.retrieve_data(table["dp_id"])``.
+Note that, in this example, there are 376,351 matching data products across both surveys so downloading
+all of them may take a significant amount of time and disk space.
 More details about this method are in the following section.
 
 Query with Constraints (Specific Instrument)
 ============================================
 
-You can also query a specific instrument using the same method (e.g., ``HARPS``). For example, to retrieve **all** available HARPS data products regardless of the associated survey towards ``HD203608`` is given by the following query:
+You can also query a specific instrument using the same method. For example, to retrieve **all** available HARPS data products regardless of the associated survey:
 
 .. doctest-remote-data::
 
-    >>> table = eso.query_surveys(column_filters={"instrument_name": "HARPS", 
-    ...                                            "target_name": "HD203608"}
-    ...                          )
-    
+    >>> table = eso.query_surveys(column_filters={"instrument_name": "HARPS"})
     >>> table
     <Table length=1000>
-    target_name    s_ra     s_dec              dp_id             proposal_id  abmaglim access_estsize               access_format                ... s_xel2   snr    strehl t_exptime     t_max          t_min      t_resolution t_xel
-                deg       deg                                                mag        kbyte                                                 ...                            s           d              d             s            
-    object    float64   float64             object               object    float64      int64                        object                   ... int64  float64 float64  float64     float64        float64       float64    int64
-    ----------- --------- --------- --------------------------- ------------- -------- -------------- ------------------------------------------ ... ------ ------- ------- --------- -------------- -------------- ------------ -----
-    HD203608 321.61455 -65.36429 ADP.2014-09-16T11:03:30.940 077.D-0720(A)       --           5261 application/x-votable+xml;content=datalink ...     --    60.9      --      33.0 53956.24265204 53956.24227009     33.00048    --
-    HD203608 321.61761 -65.36485 ADP.2014-09-16T11:03:31.020 077.D-0720(A)       --           5261 application/x-votable+xml;content=datalink ...     --    87.0      --    32.999 53953.36835125 53953.36796931    32.999616    --
-    HD203608 321.60594 -65.36528 ADP.2014-09-16T11:03:31.067 077.D-0720(A)       --           5261 application/x-votable+xml;content=datalink ...     --    73.9      --      33.0 53956.15534682 53956.15496487     33.00048    --
-    ...
-    HD203608 321.61113 -65.37211 ADP.2014-09-16T11:05:14.863 077.D-0720(A)       --           5261 application/x-votable+xml;content=datalink ...     --    95.2      --    32.999 53954.99642615 53954.99604421    32.999616    --
+    target_name     s_ra     s_dec              dp_id             proposal_id  abmaglim access_estsize ...   snr    strehl t_exptime     t_max          t_min      t_resolution t_xel
+                    deg       deg                                                mag        kbyte      ...                     s           d              d             s            
+    object     float64   float64             object               object    float64      int64      ... float64 float64  float64     float64        float64       float64    int64
+    ------------ --------- --------- --------------------------- ------------- -------- -------------- ... ------- ------- --------- -------------- -------------- ------------ -----
+        HD203608 321.61455 -65.36429 ADP.2014-09-16T11:03:30.940 077.D-0720(A)       --           5261 ...    60.9      --      33.0 53956.24265204 53956.24227009     33.00048    --
+        HD114613  198.0129 -37.80367 ADP.2014-09-16T11:03:30.947 072.C-0488(E)       --           5261 ...   267.2      --   120.002 53765.36393677 53765.36254786   120.001824    --
+        HIP5158  16.50838 -22.45455 ADP.2014-09-16T11:03:30.973 072.C-0488(E)       --           5261 ...    39.3      --   711.599 53946.33177006 53946.32353395   711.599904    --
+            ...       ...       ...                         ...           ...      ...            ... ...     ...     ...       ...            ...            ...          ...   ...
+        HD203608 321.60939 -65.36484 ADP.2014-09-16T11:03:45.713 077.D-0720(A)       --           5261 ...    45.0      --      33.0 53955.11202646 53955.11164451     33.00048    --
 
 .. tip:: 
 

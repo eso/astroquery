@@ -7,11 +7,21 @@ ESO Queries (`astroquery.eso`)
 Quick Start
 ===========
 
+.. note:: 
+
+   Check if this is a version of ``astroquery.eso`` (0.4.13 or later) that includes TAP support (see warning below).
+
+    .. doctest-skip::
+
+        >>> import astroquery
+        >>> astroquery.__version__ >= '0.4.13'
+        True
+
 This quick start example shows how to use the ``astroquery.eso`` interface to query the ESO
-Science Archive for both raw and reduced `MUSE <https://www.eso.org/sci/facilities/develop/instruments/muse.html>`_ 
-observations of the nearby galaxy `NGC300 <https://simbad.u-strasbg.fr/simbad/sim-id?Ident=NGC+++300>`_, 
-and how to download the corresponding data products using their dataset
-identifiers (``dp_id``).
+Science Archive for both raw and reduced observations. 
+The we can perform cone searches for `ESPRESSO <https://www.eso.org/sci/facilities/paranal/instruments/espresso.html>`_ 
+spectra towards the star `HD 37903 <https://simbad.u-strasbg.fr/simbad/sim-id?Ident=HD+37903>`_, 
+and how to download the corresponding data products.
 
 .. doctest-skip::
 
@@ -20,20 +30,20 @@ identifiers (``dp_id``).
 
     >>> from astropy.coordinates import SkyCoord 
     >>> import astropy.units as u 
-    >>> coords = SkyCoord.from_name("NGC 300") 
+    >>> coords = SkyCoord.from_name("HD 37903") 
     >>> ra = coords.ra.value
     >>> dec = coords.dec.value
-    >>> r = (30*u.arcsec).to(u.deg).value
+    >>> r = (1*u.arcsec).to(u.deg).value
 
-    >>> table_raw = eso.query_main("MUSE", cone_ra=ra, cone_dec=dec, cone_radius=r)
-    >>> table_reduced = eso.query_surveys("MUSE", cone_ra=ra, cone_dec=dec, cone_radius=r)
+    >>> table_raw = eso.query_main("ESPRESSO", cone_ra=ra, cone_dec=dec, cone_radius=r)
+    >>> table_reduced = eso.query_surveys("ESPRESSO", cone_ra=ra, cone_dec=dec, cone_radius=r)
     
     >>> eso.retrieve_data(table_raw["dp_id"])
     >>> eso.retrieve_data(table_reduced["dp_id"])
 
 By default, queries are limited to returning a maximum of 1000 rows. This limit
 can be modified by setting the ``ROW_LIMIT`` attribute. To disable truncation
-and return all matching results, set:
+and return all matching results (up to TAP limit of 15,000,000), set:
 
 .. doctest-skip::
 

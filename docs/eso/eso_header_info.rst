@@ -11,8 +11,7 @@ There is, however, a way to get the full primary header of the FITS data product
 
     >>> table = eso.query_instrument("midi",
     ...                     column_filters={
-    ...                         "object": "NGC4151",
-    ...                         "date_obs": "<='2008-01-01'"
+    ...                         "date_obs": "between '2008-01-01' and '2008-01-02'"
     ...                     },
     ...                     columns=["object", "date_obs", "dp_id"]
     ...                          )
@@ -24,17 +23,16 @@ keywords, the full primary FITS header can be retrieved directly from the
 archive using a dedicated helper method.
 
 .. doctest-remote-data::
-    >>> table_headers = eso.get_headers(table["dp_id"])
+    >>> table_headers = eso.get_headers(table["dp_id"][:5])
     >>> table_headers
-               DP.ID             SIMPLE BITPIX ...   HIERARCH ESO OCS EXPO7 FNAME2     HIERARCH ESO OCS EXPO8 FNAME1     HIERARCH ESO OCS EXPO8 FNAME2
-    ---------------------------- ------ ------ ... --------------------------------- --------------------------------- ---------------------------------
-    MIDI.2007-02-07T07:01:51.000   True     16 ...
-    MIDI.2007-02-07T07:02:49.000   True     16 ...
-    MIDI.2007-02-07T07:03:30.695   True     16 ...
-                             ...
-    MIDI.2007-02-07T07:20:06.695   True     16 ... MIDI.2007-02-07T07:20:06.695.fits
-    MIDI.2007-02-07T07:22:57.000   True     16 ... MIDI.2007-02-07T07:20:06.695.fits MIDI.2007-02-07T07:22:57.000.fits
-    MIDI.2007-02-07T07:23:38.695   True     16 ... MIDI.2007-02-07T07:20:06.695.fits MIDI.2007-02-07T07:22:57.000.fits MIDI.2007-02-07T07:23:38.695.fits
+    <Table length=5>
+            DP.ID             SIMPLE BITPIX ...   HIERARCH ESO OCS EXPO8 FNAME1     HIERARCH ESO OCS EXPO9 FNAME1  
+            str28              bool  int64  ...               str33                             str33              
+    ---------------------------- ------ ------ ... --------------------------------- ---------------------------------
+    MIDI.2008-01-01T08:29:16.388   True     16 ...                                                                    
+    MIDI.2008-01-01T08:39:38.000   True     16 ...                                                                    
+    MIDI.2008-01-01T08:47:35.000   True     16 ...                                                                    
+    MIDI.2008-01-01T08:52:00.623   True      8 ... MIDI.2008-01-01T08:51:42.000.fits MIDI.2008-01-01T08:52:00.623.fits
+    MIDI.2008-01-01T09:00:10.000   True     16 ... MIDI.2008-01-01T09:00:10.000.fits                                  
 
-
-As shown above, for each data product ID (``DP.ID``; note that this is equivalent to ``dp_id`` in ``table``), the full header (336 columns in our case) of the archive FITS file is collected. In the above table ``table_headers``, there are as many rows as there are entries in the ``table['dp_id']`` column.
+As shown above, for each data product ID (``DP.ID``; note that this is equivalent to ``dp_id`` in ``table``), the full primary header (336 columns in our case) of the archive FITS file is collected. In the above table ``table_headers``, there are as many rows as there are entries in the ``table['dp_id']`` column.

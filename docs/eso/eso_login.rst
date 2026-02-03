@@ -17,46 +17,58 @@ Login Examples
 
 The following examples show typical login and data retrieval workflows:
 
+**First example:** ``"TEST"`` is not a valid username, it will fail:
+
 .. doctest-skip::
 
-    >>> # First example: TEST is not a valid username, it will fail
     >>> eso.login(username="TEST") # doctest: +SKIP
     WARNING: No password was found in the keychain for the provided username. [astroquery.query]
     TEST, enter your password:
 
-    INFO: Authenticating TEST on https://www.eso.org/sso ... [astroquery.eso.core]
+    INFO: Authenticating TEST on 'www.eso.org' ... [astroquery.eso.core]
     ERROR: Authentication failed! [astroquery.eso.core]
+
+**Second example:** pretend ``"ICONDOR"`` is a valid username:
 
 .. doctest-skip::
 
-    >>> # Second example: pretend ICONDOR is a valid username
     >>> eso.login(username="ICONDOR", store_password=True) # doctest: +SKIP
     WARNING: No password was found in the keychain for the provided username. [astroquery.query]
     ICONDOR, enter your password:
 
-    INFO: Authenticating ICONDOR on https://www.eso.org/sso ... [astroquery.eso.core]
+    INFO: Authenticating ICONDOR on 'www.eso.org' ... [astroquery.eso.core]
     INFO: Authentication successful! [astroquery.eso.core]
+
+After the first login, your password has been stored:
 
 .. doctest-skip::
 
-    >>> # After the first login, your password has been stored
     >>> eso.login(username="ICONDOR") # doctest: +SKIP
-    INFO: Authenticating ICONDOR on https://www.eso.org/sso ... [astroquery.eso.core]
+    INFO: Authenticating ICONDOR on 'www.eso.org' ... [astroquery.eso.core]
     INFO: Authentication successful! [astroquery.eso.core]
 
-.. doctest-skip::
 
-    >>> # Successful download of a public file (with or without login)
-    >>> eso.retrieve_data("AMBER.2006-03-14T07:40:19.830") # doctest: +SKIP
-    INFO: Downloading file 1/1 https://dataportal.eso.org/dataPortal/file/AMBER.2006-03-14T07:40:19.830
-    INFO: Successfully downloaded dataset AMBER.2006-03-14T07:40:19.830
+Successful download of a public file (with or without login):
 
 .. doctest-skip::
 
-    >>> # Access denied to a restricted-access file (as anonymous user or as authenticated but not authorised user)
     >>> eso.retrieve_data("ADP.2023-03-02T01:01:24.355") # doctest: +SKIP
-    INFO: Downloading file 1/1 https://dataportal.eso.org/dataPortal/file/ADP.2023-03-02T01:01:24.355
-    ERROR: Access denied to https://dataportal.eso.org/dataPortal/file/ADP.2023-03-02T01:01:24.355
+    INFO: Downloading datasets ... [astroquery.eso.core]
+    INFO: Downloading 1 files ... [astroquery.eso.core]
+    INFO: Downloading file 1/1 https://dataportal.eso.org/dataPortal/file/ADP.2023-03-02T01:01:24.355 to ... [astroquery.eso.core]
+    INFO: Successfully downloaded dataset ADP.2023-03-02T01:01:24.355 to ../ADP.2023-03-02T01:01:24.355.fits [astroquery.eso.core]
+    INFO: Done! [astroquery.eso.core]
+
+Access denied to a restricted-access file (as anonymous user or as authenticated but not authorised user):
+
+.. doctest-skip::
+
+    >>> eso.retrieve_data("FORS2.2010-10-23T23:38:41.912") # doctest: +SKIP
+    INFO: Downloading datasets ... [astroquery.eso.core]
+    INFO: Downloading 1 files ... [astroquery.eso.core]
+    INFO: Downloading file 1/1 https://dataportal.eso.org/dataPortal/file/FORS2.2010-10-23T23:38:41.912 to ... [astroquery.eso.core]
+    ERROR: Access denied to https://dataportal.eso.org/dataPortal/file/FORS2.2010-10-23T23:38:41.912 [astroquery.eso.core]
+    INFO: Done! [astroquery.eso.core]
 
 Password Storage
 ================
@@ -73,6 +85,7 @@ As shown above, your password can be stored securely using the `keyring <https:/
 
 .. doctest-skip::
 
+    >>> import keyring
     >>> keyring.delete_password("astroquery:www.eso.org", "your_username")
 
 Automatic Login

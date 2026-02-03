@@ -49,7 +49,12 @@ We first query for the reduced data from the **ALCOHOLS** survey, and retrieve t
     >>>    print("Warning: Multiple proposal IDs found...")
     
     >>> # Extract the first part of the proposal ID before any parentheses (i.e. the run ID)
-    >>> proposal_id = proposal_id.split('(')[0] 
+    >>> def proposal_remove_run(proposal_id):
+    ...     program = ".".join(proposal_id.split('.',2)[:2])
+    ...     program = ".".join(program.split('(')[:1])
+    ...     return program
+
+    >>> proposal_id = proposal_remove_run(proposal_id)
     >>> print(f"Proposal ID: {proposal_id}")
     Proposal ID: 094.C-0935
 
