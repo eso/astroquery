@@ -294,7 +294,7 @@ class EsoClass(QueryWithLogin):
 
         try:
             row_limit_plus_one = self.ROW_LIMIT
-            if self.ROW_LIMIT < self.MAX_ROW_LIMIT:
+            if self.ROW_LIMIT < conf.MAX_ROW_LIMIT:
                 row_limit_plus_one = self.ROW_LIMIT + 1
 
             table_with_an_extra_row = tap.search(query=query_str, maxrec=row_limit_plus_one).to_table()
