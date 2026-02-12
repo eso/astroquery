@@ -1167,7 +1167,7 @@ class EsoClass(QueryWithLogin):
                 sorted_datasets = sorted(datasets)
                 for i in range(0, len(sorted_datasets), batch_size):
                     associated_files += self.get_associated_files(
-                        sorted_datasets[i : i + batch_size], mode=with_calib
+                        sorted_datasets[i:i + batch_size], mode=with_calib
                     )
                 associated_files = list(set(associated_files))
                 log.info(f"Found {len(associated_files)} associated files")

@@ -25,6 +25,7 @@ class Conf(_config.ConfigNamespace):
         "https://archive.eso.org/tap_cat",
         'URL for TAP catalogue queries.')
 
+
 conf = Conf()
 
 from .core import Eso, EsoClass

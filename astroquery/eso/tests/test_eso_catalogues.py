@@ -9,24 +9,11 @@ European Southern Observatory (ESO)
 """
 
 import os
-import shutil
-import sys
 
-import pytest
-import pyvo
-from astropy.table import Table
 import astropy.io.ascii
+from astropy.table import Table
 
-from astroquery.utils.mocks import MockResponse
 from ...eso import Eso
-from ...eso.utils import (
-    _UserParams,
-    _build_adql_string,
-    _adql_sanitize_op_val,
-    _reorder_columns,
-    DEFAULT_LEAD_COLS_RAW,
-)
-from ...exceptions import NoResultsWarning, MaxResultsWarning
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 EXPECTED_MAXREC = 1000
