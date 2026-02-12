@@ -158,14 +158,29 @@ class EsoClass(QueryWithLogin):
         finally:
             self.ROW_LIMIT = tmpvar
 
+    def _tap_urls(self) -> Dict[str, str]:
+        return {
+            "tap_obs": conf.tap_obs_url,
+            "tap_cat": conf.tap_cat_url,
+        }
+
     def _tap_url(self, which_tap: str = "tap_obs") -> str:
-        if which_tap == "tap_obs":
-            url = conf.tap_obs_url
-        elif which_tap == "tap_cat": 
-            url = conf.tap_cat_url
-        else:
-            raise ValueError("which_tap must be 'tap_obs' or 'tap_cat'.")
-        return url
+        tap_urls = self._tap_urls()
+        try:
+            return tap_urls[which_tap]
+        except KeyError as exc:
+            valid_keys = "', '".join(tap_urls.keys())
+            raise ValueError(f"which_tap must be one of '{valid_keys}'.") from exc
+
+    def _which_tap(self, tap_url: str = conf.tap_obs_url) -> str:
+        tap_urls = self._tap_urls()
+        normalized_tap_url = tap_url.rstrip("/")
+        for which_tap, known_url in tap_urls.items():
+            if normalized_tap_url == known_url.rstrip("/"):
+                return which_tap
+
+        valid_urls = "', '".join(tap_urls.values())
+        raise ValueError(f"tap_url must be one of '{valid_urls}'.")
 
     def _authenticate(self, *, username: str, password: str) -> bool:
         """
@@ -266,7 +281,11 @@ class EsoClass(QueryWithLogin):
         table_with_an_extra_row = Table()
 
         def message(query_str):
-            which_tap = tap.baseurl.split("/")[-1]
+            try:
+                which_tap = self._which_tap(tap.baseurl)
+            except ValueError:
+                # Keep the original exception path stable for unrecognized/custom TAP URLs.
+                which_tap = tap.baseurl
             return (f"Error executing the following query:\n\n"
                     f"{query_str}\n\n"
                     "See examples here: https://archive.eso.org/tap_obs/examples\n\n"
@@ -275,7 +294,7 @@ class EsoClass(QueryWithLogin):
 
         try:
             row_limit_plus_one = self.ROW_LIMIT
-            if self.ROW_LIMIT < sys.maxsize:
+            if self.ROW_LIMIT < self.MAX_ROW_LIMIT:
                 row_limit_plus_one = self.ROW_LIMIT + 1
 
             table_with_an_extra_row = tap.search(query=query_str, maxrec=row_limit_plus_one).to_table()
