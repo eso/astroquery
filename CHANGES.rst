@@ -182,6 +182,7 @@ eso
 - Cone search using ``cone_ra`, ``cone_dec`, ``cone_radius`` arguments. [#3339]
 - Retrieve record count before querying the archive, via ``count_only`` argument. [#3339]
 - Ask query functions to print the underlying ADQL queries without issuing them. [#3339]
+- Add functionality to list and query ESO catalogues. [#XXXX]
 
 gaia
 ^^^^
