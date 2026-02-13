@@ -1,7 +1,7 @@
 
-*************
-Download Data
-*************
+****************************
+Observations - Download Data
+****************************
 
 Assuming you have already performed a query (e.g., using :meth:`~astroquery.eso.EsoClass.query_surveys`, :meth:`~astroquery.eso.EsoClass.query_instrument`, or :meth:`~astroquery.eso.EsoClass.query_main`) and have a resulting table of data products, you can download the actual datasets using the :meth:`~astroquery.eso.EsoClass.retrieve_data` method. This method takes as input a list of data product IDs (``dp_id``) obtained from the query results.
 
@@ -31,7 +31,8 @@ The file names returned in ``data_files`` point to the decompressed datasets
 By default, if a requested dataset is already found, it is not downloaded again from the archive.
 To force the retrieval of data that are present in the destination directory, use ``continuation=True`` in the call to :meth:`~astroquery.eso.EsoClass.retrieve_data`.
 
-When downloading datasets, you can optionally retrieve associated calibration files by using the ``with_calib`` argument. This allows you to obtain either raw or processed calibrations in addition to the science files.
+When downloading datasets, you can optionally retrieve associated calibration files by using the ``with_calib`` argument. 
+This makes use of the ESO CalSelector service (see the `CalSelector information page <https://archive.eso.org/cms/application_support/calselectorInfo.html>`_).
 
 Available options:
 

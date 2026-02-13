@@ -1,7 +1,7 @@
 
-******************
-Header Information
-******************
+*********************************
+Observations - Header Information
+*********************************
 
 Only a small subset of the keywords present in the data products can be obtained with the :meth:`~astroquery.eso.EsoClass.query_instrument`, :meth:`~astroquery.eso.EsoClass.query_main`, :meth:`~astroquery.eso.EsoClass.query_surveys`, or :meth:`~astroquery.eso.EsoClass.query_tap` methods.
 
@@ -36,3 +36,7 @@ archive using a dedicated helper method.
     MIDI.2008-01-01T09:00:10.000   True     16 ... MIDI.2008-01-01T09:00:10.000.fits                                  
 
 As shown above, for each data product ID (``DP.ID``; note that this is equivalent to ``dp_id`` in ``table``), the full primary header (336 columns in our case) of the archive FITS file is collected. In the above table ``table_headers``, there are as many rows as there are entries in the ``table['dp_id']`` column.
+
+.. note:: 
+
+    At present, astroquery returns only the primary header; the rest of the FITS header is not accessible through astroquery yet. Support for returning the entire header is planned for a future version.

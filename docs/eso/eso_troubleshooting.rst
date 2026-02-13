@@ -31,15 +31,20 @@ Filtering between two dates
 
     # ❌ Invalid (WDB-specific fields, not recognized by TAP)
     column_filters = {
-        "stime": "2024-01-01",
-        "etime": "2024-12-31"
+        "stime": "2024-01-01 12:00:00",
+        "etime": "2024-01-03 12:00:00"
     }
 
 .. doctest-skip::
 
     # ✅ Correct (TAP-compliant syntax using 'exp_start')
     column_filters = {
-        "exp_start": "between '2024-01-01' and '2024-12-31'"
+        "exp_start": "between '2024-01-01 12:00:00' and '2024-01-03 12:00:00'"
+    }
+
+    # OR 
+    column_filters = {
+        "exp_start": "between '2024-01-01T12:00:00' and '2024-01-03T12:00:00'"
     }
 
 Filtering with only a start date
@@ -49,14 +54,14 @@ Filtering with only a start date
 
     # ❌ Invalid
     column_filters = {
-        "stime": "2024-01-01"
+        "stime": "2024-01-01 12:00:00"
     }
 
 .. doctest-skip::
 
     # ✅ Correct
     column_filters = {
-        "exp_start": "> '2024-01-01'"
+        "exp_start": "> '2024-01-01 12:00:00'"
     }
 
 Filtering with only an end date
@@ -66,12 +71,12 @@ Filtering with only an end date
 
     # ❌ Invalid
     column_filters = {
-        "etime": "2024-12-31"
+        "etime": "2024-12-31 12:00:00"
     }
 
 .. doctest-skip::
 
     # ✅ Correct
     column_filters = {
-        "exp_start": "< '2024-12-31'"
+        "exp_start": "< '2024-12-31 12:00:00'"
     }

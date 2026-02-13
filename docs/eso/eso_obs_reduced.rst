@@ -1,7 +1,7 @@
 
-**********************
-Query for Reduced Data
-**********************
+*************************************
+Observations - Query for Reduced Data
+*************************************
 
 In addition to raw observational files, the ESO Science Archive provides access to a wide range of **processed (reduced) data products**. These include science-ready images, spectra, and datacubes that have been validated by ESO (through the `ESO Phase 3 <https://www.eso.org/sci/observing/phase3.html>`_ process).
 
@@ -48,7 +48,6 @@ As before, list the possible columns in :meth:`~astroquery.eso.EsoClass.query_su
             calib_level      int                                 
                     ...
             target_name     char                   
-
     Number of records present in the table ivoa.ObsCore:
     4559928
     [astroquery.eso.core]
