@@ -1,7 +1,7 @@
 
-******************
-Simple Cone Search 
-******************
+**************************
+Observations - Cone Search 
+**************************
 
 In the simplest case, archive queries can be performed using a positional
 (cone) search, which returns all data products within a given angular radius

@@ -9,7 +9,8 @@ Quick Start
 
 .. note:: 
 
-   Check if this is a version of ``astroquery.eso`` (0.4.12 or later) that includes TAP support (see warning below).
+   Check if this is a version of ``astroquery.eso`` (0.4.12 or later) that includes TAP support 
+   (see warning below). 
 
     .. doctest-skip::
 
@@ -18,7 +19,11 @@ Quick Start
         True
 
 This quick start example shows how to use the ``astroquery.eso`` interface to query the ESO
-Science Archive for both raw and reduced observations. 
+Science Archive for both raw and reduced observations, as well as catalogue data. 
+
+Observations
+------------
+
 Here, we perform a cone search for `ESPRESSO <https://www.eso.org/sci/facilities/paranal/instruments/espresso.html>`_ 
 spectra towards the star `HD 37903 <https://simbad.u-strasbg.fr/simbad/sim-id?Ident=HD+37903>`_, 
 and how to download the corresponding data products.
@@ -41,6 +46,18 @@ and how to download the corresponding data products.
     >>> eso.retrieve_data(table_raw["dp_id"])
     >>> eso.retrieve_data(table_reduced["dp_id"])
 
+Catalogues
+------------
+
+Catalogue queries operate on published survey tables and return column-based 
+results. For example, 
+to query the `KiDS DR4 <https://www.eso.org/rm/api/v1/public/releaseDescriptions/229>`_ 
+catalogue and inspect a small subset of rows:
+
+.. doctest-skip::
+
+    >>> table_cat = eso.query_catalogue("KiDS_DR4_1_ugriZYJHKs_cat_fits", ROW_LIMIT=5)
+
 By default, queries are limited to returning a maximum of 1000 rows. This limit
 can be modified by setting the ``ROW_LIMIT`` attribute. To disable truncation
 and return all matching results (up to TAP limit of 15,000,000), set:
@@ -52,19 +69,48 @@ and return all matching results (up to TAP limit of 15,000,000), set:
 Getting Started
 ===============
 
+This guide walks through logging in, running your first archive queries, inspecting
+metadata, downloading products, and querying catalogues.
+
+Authentication
+--------------
+
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    eso_login
+
+Observation Queries
+-------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   eso_obs_cone_search
    eso_obs_raw_general
    eso_obs_raw_instrument
    eso_obs_reduced
+   eso_obs_tap
    eso_obs_apex
    eso_obs_header_info
+   eso_obs_download
+
+Catalogue Queries
+-----------------
+
+.. toctree::
+   :maxdepth: 2
+
+   eso_cat_cone_search
    eso_cat_query
-   eso_cone_search
-   eso_tap
-   eso_download
+   eso_cat_tap
+
+Help
+----
+
+.. toctree::
+   :maxdepth: 2
+
    eso_troubleshooting
 
 .. warning::
@@ -81,14 +127,14 @@ Getting Started
     In TAP, ``column_filters`` accepts ADQL expressions. For example:
 
     .. doctest-skip::
-
-        column_filters = {
-            "some_int_column": "< 5",
-            "some_float_column_2": ">= 1.23",
-            "some_char_column": "like '%John%'",
-            "some_generic_column": "in ('mango', 'apple', 'kiwi')",
-            "other_generic_column": "between '2024-01-01' and '2024-12-31'"
-        }
+    
+        >>> column_filters = {
+        ...        "some_int_column": "< 5",
+        ...        "some_float_column_2": ">= 1.23",
+        ...        "some_char_column": "like '%John%'",
+        ...        "some_generic_column": "in ('mango', 'apple', 'kiwi')",
+        ...        "other_generic_column": "between '2024-01-01' and '2024-12-31'"
+        ...        }
 
     Please review your queries carefully and update them accordingly to ensure compatibility with the new astroquery versions.
     See section :ref:`column-filters-fix` for more information and examples. 
