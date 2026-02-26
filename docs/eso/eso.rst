@@ -10,13 +10,7 @@ Quick Start
 .. note:: 
 
    Check if this is a version of ``astroquery.eso`` (0.4.12 or later) that includes TAP support 
-   (see warning below). 
-
-    .. doctest-skip::
-
-        >>> import astroquery
-        >>> astroquery.__version__ >= '0.4.12'
-        True
+   (see  **⚠️ Backward Compatibility Notice ⚠️** below). 
 
 This quick start example shows how to use the ``astroquery.eso`` interface to query the ESO
 Science Archive for both raw and reduced observations, as well as catalogue data. 
@@ -26,7 +20,7 @@ Observations
 
 Here, we perform a cone search for `ESPRESSO <https://www.eso.org/sci/facilities/paranal/instruments/espresso.html>`_ 
 spectra towards the star `HD 37903 <https://simbad.u-strasbg.fr/simbad/sim-id?Ident=HD+37903>`_, 
-and how to download the corresponding data products.
+and show how to download the corresponding data products.
 
 .. doctest-skip::
 
