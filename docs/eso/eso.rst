@@ -155,19 +155,6 @@ There are multiple ways to access the archive:
 
 This documentation focuses on the last method: accessing the archive programmatically using the ``astroquery.eso`` module. This Python interface allows users to search for both raw and reduced data, retrieve metadata, and download data products directly using dataset identifiers. Proprietary access is supported via authentication with the `ESO User Portal <https://www.eso.org/UserPortal>`_.
 
-Notebooks
-=========
-
-A set of example Jupyter notebooks demonstrating the usage of the ``astroquery.eso`` module can be found in the `ESO GitHub astroquery examples 
-<https://github.com/eso/astroquery_examples/tree/main>`_ repository, where a simple overview script can be found at `introduction.ipynb <https://github.com/eso/astroquery_examples/blob/main/examples/simple/00_introduction.ipynb>`_.
-
-Requirements
-============
-
-Along with the main requirements of the ``astroquery`` package, the following packages are required for the use of this module:
-
-* `lxml <https://pypi.org/project/lxml>`_
-
 Reference/API
 =============
 

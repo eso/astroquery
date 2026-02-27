@@ -33,56 +33,65 @@ Below are examples of invalid filter usage and their corrected TAP-compatible ve
 Filtering between two dates
 ---------------------------
 
-.. doctest-skip::
-
-    # ❌ Invalid (WDB-specific fields, not recognized by TAP)
-    column_filters = {
-        "stime": "2024-01-01 12:00:00",
-        "etime": "2024-01-03 12:00:00"
-    }
+❌ Invalid (WDB-specific fields, not recognized by TAP)
 
 .. doctest-skip::
 
-    # ✅ Correct (TAP-compliant syntax using 'exp_start')
-    column_filters = {
-        "exp_start": "between '2024-01-01 12:00:00' and '2024-01-03 12:00:00'"
-    }
+    >>> column_filters = {
+    ...    "stime": "2024-01-01 12:00:00",
+    ...    "etime": "2024-01-03 12:00:00"
+    ...}
 
-    # OR 
-    column_filters = {
-        "exp_start": "between '2024-01-01T12:00:00' and '2024-01-03T12:00:00'"
-    }
+✅ Correct (TAP-compliant syntax using 'exp_start')
+
+.. doctest-skip::
+
+    >>> column_filters = {
+    ...        "exp_start": "between '2024-01-01 12:00:00' and '2024-01-03 12:00:00'"
+    ...    }
+
+OR 
+
+.. doctest-skip::
+
+    >>> column_filters = {
+    ...        "exp_start": "between '2024-01-01T12:00:00' and '2024-01-03T12:00:00'"
+    ...    }
 
 Filtering with only a start date
 --------------------------------
 
-.. doctest-skip::
-
-    # ❌ Invalid
-    column_filters = {
-        "stime": "2024-01-01 12:00:00"
-    }
+# ❌ Invalid
 
 .. doctest-skip::
+    
+    >>> column_filters = {
+    ...        "stime": "2024-01-01 12:00:00"
+    ...    }
 
-    # ✅ Correct
-    column_filters = {
-        "exp_start": "> '2024-01-01 12:00:00'"
-    }
+# ✅ Correct
+
+.. doctest-skip::
+
+    >>> column_filters = {
+    ...        "exp_start": "> '2024-01-01 12:00:00'"
+    ...    }
 
 Filtering with only an end date
 -------------------------------
 
-.. doctest-skip::
-
-    # ❌ Invalid
-    column_filters = {
-        "etime": "2024-12-31 12:00:00"
-    }
+# ❌ Invalid
 
 .. doctest-skip::
+    
+    >>> column_filters = {
+    ...        "etime": "2024-12-31 12:00:00"
+    ...    }
 
-    # ✅ Correct
-    column_filters = {
-        "exp_start": "< '2024-12-31 12:00:00'"
-    }
+# ✅ Correct
+
+.. doctest-skip::
+
+    >>> column_filters = {
+    ...        "exp_start": "< '2024-12-31 12:00:00'"
+    ...    }
