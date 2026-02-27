@@ -24,6 +24,29 @@ spatial filtering, metadata-driven joins, and light-curve retrieval.
 Schema Discovery Examples
 =========================
 
+List Release Documentation URLs for Available Catalogues
+--------------------------------------------------------
+
+This example shows how to retrieve the release documentation URL for each
+published catalogue directly from ``TAP_SCHEMA.tables``. For example, for the ``AMBRE_V1`` 
+catalogue, the corresponding release documentation can be found at:
+https://www.eso.org/rm/api/v1/public/releaseDescriptions/7
+
+.. doctest-skip::
+
+    >>> query = """
+    ... SELECT table_name, cat_id, rel_descr_url
+    ... FROM TAP_SCHEMA.tables
+    ... WHERE schema_name = 'safcat' AND cat_id IS NOT NULL
+    ... ORDER BY cat_id
+    ... """
+    >>> table = eso.query_tap(query, which_tap="tap_cat")
+    >>> print(table[:2])
+    table_name       cat_id                  release_documentation_url
+    ---------------- ------ -----------------------------------------------------------
+    AMBRE_V1             13 https://www.eso.org/rm/api/v1/public/releaseDescriptions/7
+    GOODS_FORS2_V1       31 https://www.eso.org/rm/api/v1/public/releaseDescriptions/37
+
 Inspect Columns in a Specific Catalogue Table
 ---------------------------------------------
 
@@ -157,7 +180,18 @@ Metadata Join Example
 Discover Join Keys for VVV Tables
 ---------------------------------
 
-Use this to discover how ``VVV_CAT_V2`` can be joined with related VVV tables.
+Use this to discover how ``VVV_CAT_V2`` can be joined with related ``VVV*`` tables.
+This pattern is common for multi-epoch catalogue products: one source can have
+many epoch-level measurements, so the measurement table may contain ``N`` rows
+for the same object. In those cases, coordinates are often stored only in a
+source/master table and not repeated ``N`` times in each epoch table. This
+reduces duplication and helps avoid inconsistencies across tables.
+
+The VVV catalogues are a representative example: ``VVV_CAT_V2`` provides the
+source-level identifiers and coordinates, while tables such as
+``VVV_MPHOT_Ks_V2`` (multi-epoch photometry) and ``VVV_VAR_V2`` (variability
+metrics) are linked through source keys (e.g. ``SOURCEID``).
+
 The resulting table shows join pairs as:
 
 - ``from_table`` via ``from_column``
@@ -179,8 +213,9 @@ The resulting table shows join pairs as:
     ... """
     >>> table = eso.query_tap(query, which_tap="tap_cat")
 
-For example, after identifying join keys (in this case the ``VVV_MPHOT_Ks_V2`` and ``VVV_VAR_V2`` tables), 
-you can build a light-curve (see below).
+After identifying the join keys (here, linking ``VVV_CAT_V2`` to
+``VVV_MPHOT_Ks_V2`` and ``VVV_VAR_V2``), you can build a light curve while
+keeping spatial constraints anchored to the master source table (see below).
 
 Light-Curve Query Examples
 ==========================
@@ -230,6 +265,7 @@ transients within ``0.05 deg`` (``3 arcmin``) around ESO 154-10.
     ...     POINT('', transient_raj2000, transient_decj2000),
     ...     CIRCLE('', 41.2863, -55.7406, 0.05)
     ... ) = 1
+    ... ORDER BY transient_id
     ... """
     >>> table = eso.query_tap(query, which_tap="tap_cat")
 
@@ -261,5 +297,6 @@ This can also be done using a name resolver for the target coordinates, as previ
     ...     POINT('', transient_raj2000, transient_decj2000),
     ...     CIRCLE('', {ra_deg}, {dec_deg}, {radius_deg})
     ... ) = 1
+    ... ORDER BY transient_id
     ... """
     >>> table = eso.query_tap(query, which_tap="tap_cat")

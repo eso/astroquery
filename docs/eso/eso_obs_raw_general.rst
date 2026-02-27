@@ -8,7 +8,7 @@ Observations - Query for Raw Data (Generic)
     the ESO Science Archive for raw data. This section focuses on the
     **generic query interface** for raw data
     :meth:`~astroquery.eso.EsoClass.query_main`, while in
-    :doc:`the instrument-specific raw-data query section <eso_raw_instrument>`
+    :doc:`the instrument-specific raw-data query section <eso_obs_raw_instrument>`
     we describe **instrument-specific queries** using
     :meth:`~astroquery.eso.EsoClass.query_instrument`.
 
@@ -104,7 +104,7 @@ For example, to retrieve only ``MIDI`` data products within some time range:
 
 .. doctest-remote-data::
 
-    >>> eso.ROW_LIMIT = -1    # Return all results without truncation
+    >>> eso.ROW_LIMIT = -1    # 0 or None to return all results without truncation
     >>> table = eso.query_main(
     ...                     instruments="midi",
     ...                     column_filters={
@@ -240,4 +240,4 @@ The ``data_files`` list points to the decompressed dataset filenames that have b
 
 For raw data, you can also retrieve associated calibration files by
 passing ``with_calib="raw"`` (or ``with_calib="processed"``). See
-:doc:`eso_download` for examples and the related CalSelector terminology.
+:doc:`eso_obs_download` for examples and the related CalSelector terminology.

@@ -79,6 +79,30 @@ The same general approach applies when querying raw data products as described
 above: while the specific metadata fields may differ, the use of TAP enables the
 same general functionality as demonstrated in the examples below.
 
+List Release Documentation URLs for Data Collections
+----------------------------------------------------
+
+Firstly, this example retrieves the release documentation URL associated with
+each published data collection exposed through ``ivoa.ObsCore``.
+
+
+.. doctest-remote-data::
+    >>> query = """
+    ... SELECT DISTINCT obs_collection, release_description
+    ... FROM ivoa.ObsCore
+    ... WHERE release_description IS NOT NULL
+    ... ORDER BY obs_collection, release_description
+    ... """
+    >>> table = eso.query_tap(query)
+    >>> print(table[:5])
+    obs_collection                     release_description                    
+    -------------- -----------------------------------------------------------
+        081.C-0827 http://www.eso.org/rm/api/v1/public/releaseDescriptions/160
+        092.A-0472 http://www.eso.org/rm/api/v1/public/releaseDescriptions/75
+        096.B-0054 http://www.eso.org/rm/api/v1/public/releaseDescriptions/142
+        108.2289   http://www.eso.org/rm/api/v1/public/releaseDescriptions/236
+        110.23NK   http://www.eso.org/rm/api/v1/public/releaseDescriptions/239
+
 Constrained query
 -----------------
 

@@ -58,7 +58,7 @@ and return all matching results (up to TAP limit of 15,000,000), set:
 
 .. doctest-skip::
 
-    >>> eso.ROW_LIMIT = -1
+    >>> eso.ROW_LIMIT = -1 # 0 or None to return all results without truncation 
 
 Getting Started
 ===============
@@ -160,11 +160,6 @@ Notebooks
 
 A set of example Jupyter notebooks demonstrating the usage of the ``astroquery.eso`` module can be found in the `ESO GitHub astroquery examples 
 <https://github.com/eso/astroquery_examples/tree/main>`_ repository, where a simple overview script can be found at `introduction.ipynb <https://github.com/eso/astroquery_examples/blob/main/examples/simple/00_introduction.ipynb>`_.
-
-Installation
-============
-
-Along with the methods to install the main ``astroquery`` package, the most up-to-date version of the ``astroquery.eso`` module can be installed directly from the `ESO GitHub astroquery <https://github.com/eso/astroquery>`_ repository. 
 
 Requirements
 ============

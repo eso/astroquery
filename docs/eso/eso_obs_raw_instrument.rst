@@ -4,7 +4,7 @@ Observations - Query for Raw Data (Instrument-Specific)
 *******************************************************
 
 .. note:: 
-    The `astroquery.eso` module provides several ways to search for raw data in the ESO Science Archive. This section focuses on the **instrument-specific query interface** for raw data :meth:`~astroquery.eso.EsoClass.query_instrument`, while in :doc:`the generic raw-data query section <eso_raw_general>` we describe **generic queries** using :meth:`~astroquery.eso.EsoClass.query_main`.
+    The `astroquery.eso` module provides several ways to search for raw data in the ESO Science Archive. This section focuses on the **instrument-specific query interface** for raw data :meth:`~astroquery.eso.EsoClass.query_instrument`, while in :doc:`the generic raw-data query section <eso_obs_raw_general>` we describe **generic queries** using :meth:`~astroquery.eso.EsoClass.query_main`.
 
 In many cases, you will want to query the ESO Archive **for data from a specific instrument**. This is exactly what the :meth:`~astroquery.eso.EsoClass.query_instrument` method is designed for. It allows you to search instrument-specific tables, which expose metadata fields and filters unique to each instrument. Internally, this method queries the corresponding instrument table (e.g., ``ist.muse``) via ESO's `TAP service <https://archive.eso.org/programmatic/#TAP>`_. This approach is ideal when you need precise control over your query, such as filtering by instrument configuration, mode, or observational setup.
 
@@ -146,4 +146,4 @@ The ``data_files`` list points to the decompressed dataset filenames that have b
 
 For raw data, you can also retrieve associated calibration files by
 passing ``with_calib="raw"`` (or ``with_calib="processed"``). See
-:doc:`eso_download` for examples and the related CalSelector terminology.
+:doc:`eso_obs_download` for examples and the related CalSelector terminology.

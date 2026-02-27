@@ -103,7 +103,7 @@ Now we see that this query is limited to 1000 results, so we can increase the ro
 
 .. doctest-remote-data::
 
-    >>> eso.ROW_LIMIT = -1
+    >>> eso.ROW_LIMIT = -1 # 0 or None to return all results without truncation
     >>> table = eso.query_surveys(surveys=["HARPS", "NIRPS"], 
     ...                          columns=["target_name", "s_ra", "s_dec", "dp_id", "proposal_id"])
     >>> table
@@ -123,6 +123,29 @@ The returned table has a ``dp_id`` column, which can be used to retrieve the dat
 Note that, in this example, there are 376,351 matching data products across both surveys so downloading
 all of them may take a significant amount of time and disk space.
 More details about this method are in the following section.
+
+.. tip:: 
+    
+    As an example, making use of the TAP free query command, :meth:`~astroquery.eso.EsoClass.query_tap`, 
+    you can also retrieve the documentation URL for every available collection with a query like:
+
+    .. doctest-skip::
+
+        >>> query = """
+        ... SELECT DISTINCT obs_collection, release_description
+        ... FROM ivoa.ObsCore
+        ... WHERE release_description IS NOT NULL
+        ... ORDER BY obs_collection, release_description
+        ... """
+        >>> table = eso.query_tap(query)
+        >>> print(table[:5])
+        obs_collection                     release_description                    
+        -------------- -----------------------------------------------------------
+            081.C-0827 http://www.eso.org/rm/api/v1/public/releaseDescriptions/160
+            092.A-0472 http://www.eso.org/rm/api/v1/public/releaseDescriptions/75
+            096.B-0054 http://www.eso.org/rm/api/v1/public/releaseDescriptions/142
+            108.2289   http://www.eso.org/rm/api/v1/public/releaseDescriptions/236
+            110.23NK   http://www.eso.org/rm/api/v1/public/releaseDescriptions/239
 
 Query with Constraints (Specific Instrument)
 ============================================

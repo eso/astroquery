@@ -72,7 +72,7 @@ left-hand side of the ``WHERE`` clause, and the dictionary *value*
 becomes the right-hand side. Therefore, providing a key like
 ``CONTAINS(...)`` with value ``1`` yields ``CONTAINS(...) = 1`` in ADQL.
 
-The helper function below constructs this automatically.
+The helper functions below construct this automatically.
 
 Helper Function
 ---------------
@@ -86,20 +86,55 @@ Define target of interest and search radius:
     >>> import astropy.units as u
     >>> eso = Eso()
 
+    >>> table_name = "KiDS_DR4_1_ugriZYJHKs_cat_fits"
     >>> coords = SkyCoord.from_name("NGC1097")
     >>> radius = 3 * u.arcmin
 
-Helper function to construct ADQL cone search predicate:
+Helper functions to identify the main ``id``, ``ra``, and ``dec`` columns
+and construct the ADQL cone search predicate:
 
 .. doctest-skip::
 
-    >>>  def make_cone_filter(
-    ...        ra,
-    ...        dec,
-    ...        radius,
-    ...        ra_name="RAJ2000",
-    ...        dec_name="DECJ2000",
-    ...        ):
+    >>> MAIN_UCD_TO_KEY = {
+    ...     "meta.id;meta.main": "id",
+    ...     "pos.eq.ra;meta.main": "ra",
+    ...     "pos.eq.dec;meta.main": "dec",
+    ... }
+    ...
+    >>> def _set_main_cols(table_name=None):
+    ...     """Find main id/ra/dec columns for one catalogue or all catalogues."""
+    ...     ucd_clause = " OR ".join(f"ucd = '{ucd}'" for ucd in MAIN_UCD_TO_KEY)
+    ...
+    ...     where_parts = [f"({ucd_clause})"]
+    ...     if table_name:
+    ...         name = table_name.strip()
+    ...         bare = name[7:] if name.lower().startswith("safcat.") else name
+    ...         names = [n.replace("'", "''") for n in {bare, f"safcat.{bare}"} if n]
+    ...         name_clause = " OR ".join(f"table_name = '{n}'" for n in names)
+    ...         where_parts.insert(0, f"({name_clause})")
+    ...
+    ...     query = f"""
+    ...         SELECT table_name, column_name, ucd, unit
+    ...         FROM TAP_SCHEMA.columns
+    ...         WHERE {' AND '.join(where_parts)}
+    ...         ORDER BY table_name, ucd DESC
+    ...     """
+    ...
+    ...     return eso.query_tap(query, which_tap="tap_cat")
+    ...
+    >>> def main_cols(table_name):
+    ...     """Return main id/ra/dec column names for a catalogue table."""
+    ...     principal = {"id": None, "ra": None, "dec": None}
+    ...     rows = _set_main_cols(table_name=table_name)
+    ...
+    ...     for row in rows:
+    ...         key = MAIN_UCD_TO_KEY.get(row["ucd"])
+    ...         if key and principal[key] is None:
+    ...             principal[key] = row["column_name"]
+    ...
+    ...     return principal
+    ...
+    >>> def make_cone_filter(ra, dec, radius, table_name):
     ...        """
     ...        Construct an ADQL cone-search predicate for catalogue queries.
     ...
@@ -111,12 +146,8 @@ Helper function to construct ADQL cone search predicate:
     ...            Declination of cone centre.
     ...        radius : astropy.units.Quantity
     ...            Search radius.
-    ...        ra_name : str, optional
-    ...            Name of the RA column in the catalogue
-    ...            (default: 'RAJ2000').
-    ...        dec_name : str, optional
-    ...            Name of the Dec column in the catalogue
-    ...            (default: 'DECJ2000').
+    ...        table_name : str
+    ...            Catalogue table name.
     ...
     ...        Returns
     ...        -------
@@ -130,14 +161,28 @@ Helper function to construct ADQL cone search predicate:
     ...        dec_deg = dec.to_value(u.deg)
     ...        rad_deg = radius.to_value(u.deg)
     ...
+    ...        cols = main_cols(table_name)
+    ...        if not cols["ra"] or not cols["dec"]:
+    ...            raise ValueError(
+    ...                f"Missing main RA/Dec columns for table '{table_name}'"
+    ...            )
+    ...
     ...        predicate = (
     ...            f"CONTAINS("
-    ...            f"POINT('', {ra_name}, {dec_name}), "
+    ...            f"POINT('', {cols['ra']}, {cols['dec']}), "
     ...            f"CIRCLE('', {ra_deg}, {dec_deg}, {rad_deg})"
     ...            f")"
     ...        )
     ...
     ...        return {predicate: 1}
+
+Example lookup of the main columns for a catalogue:
+
+.. doctest-skip::
+
+    >>> ird = main_cols(table_name)
+    >>> print(ird["ra"], ird["dec"])
+    RAJ2000 DECJ2000
 
 Run search with cone filter:
 
@@ -147,10 +192,11 @@ Run search with cone filter:
     ...     ra=coords.ra,
     ...     dec=coords.dec,
     ...     radius=radius,
+    ...     table_name=table_name,
     ... )
 
     >>> table = eso.query_catalogue(
-    ...     catalogue="KiDS_DR4_1_ugriZYJHKs_cat_fits",
+    ...     catalogue=table_name,
     ...     column_filters=column_filters,
     ... )
     >>> table

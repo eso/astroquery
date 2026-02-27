@@ -65,7 +65,7 @@ Before querying a specific catalogue, inspect its schema with
 ``eso.query_catalogue(..., help=True)``. This prints the available columns and
 the total number of records in that table -- in this case the ``'KiDS_DR4_1_ugriZYJHKs_cat_fits'`` 
 table. To see more infomation on this specific version of the Kilo-Degree Survey (KiDS) catalogue, see the 
-`release documentation <https://www.eso.org/rm/api/v1/public/releaseDescriptions/229>`_.
+`release documentation <https://www.eso.org/rm/api/v1/public/releaseDescriptions/229>`_.*
 
 .. doctest-skip::
 
@@ -97,6 +97,29 @@ table. To see more infomation on this specific version of the Kilo-Degree Survey
     100350804
     [astroquery.eso.core]
 
+.. tip:: 
+    
+    As an exmple, making use of the TAP free query command, :meth:`~astroquery.eso.EsoClass.query_tap`, 
+    you can also retrieve the documentation URL for every available catalogue with a query like:
+
+    .. doctest-skip::
+
+        >>> query = """
+        ... SELECT table_name, cat_id, rel_descr_url
+        ... FROM TAP_SCHEMA.tables
+        ... WHERE schema_name = 'safcat' AND cat_id IS NOT NULL
+        ... ORDER BY cat_id
+        ... """
+        >>> tbl = eso.query_tap(query, which_tap="tap_cat")
+        >>> print(tbl[:5])
+        table_name       cat_id                  release_documentation_url                 
+        ---------------- ------ -----------------------------------------------------------
+        AMBRE_V1             13 https://www.eso.org/rm/api/v1/public/releaseDescriptions/7
+        GOODS_FORS2_V1       31 https://www.eso.org/rm/api/v1/public/releaseDescriptions/37
+        HUGS_GOODSS_K_V1     32 https://www.eso.org/rm/api/v1/public/releaseDescriptions/48
+        HUGS_UDS_K_V1        33 https://www.eso.org/rm/api/v1/public/releaseDescriptions/49
+        HUGS_UDS_Y_V1        34 https://www.eso.org/rm/api/v1/public/releaseDescriptions/50
+
 Query with Constraints
 ======================
 
@@ -122,8 +145,8 @@ e.g. ``ROW_LIMIT=5`` to the query method:
     0.04201349    6.206854           3.289606 0.0001955687 ...    0.35               0.23               0.27
 
 A larger number of rows can be returned by setting a higher row limit, or by disabling truncation
-with ``eso.ROW_LIMIT = -1``. Be aware that the TAP service has a maximum limit of 15,000,000 rows
-per query, so setting ``eso.ROW_LIMIT = -1`` will return all matching results up to that TAP limit.
+with ``eso.ROW_LIMIT = -1`` (``=0`` or ``=None``). Be aware that the TAP service has a maximum limit of 15,000,000 rows
+per query, so setting ``eso.ROW_LIMIT = -1`` (``=0`` or ``=None``) will return all matching results up to that TAP limit.
 
 You can also combine selected columns with ADQL filters in ``column_filters``.
 For example, to retrieve bright sources with r-band magnitude of ``MAG_AUTO < 10``, and only return a subset of
