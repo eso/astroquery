@@ -11,6 +11,7 @@ European Southern Observatory (ESO)
 import os
 
 import astropy.io.ascii
+import pytest
 from astropy.table import Table
 
 from ...eso import Eso
@@ -289,3 +290,41 @@ def test_query_catalogs(monkeypatch):
     result = eso.query_catalog("KiDS_DR4_1_ugriZYJHKs_cat_fits")
     assert isinstance(result, Table)
     assert len(result) <= 5
+
+
+def test_query_catalog_get_query_payload_prefixes_catalog_schema(monkeypatch):
+    eso = Eso()
+
+    # get_query_payload=True is a dry-run mode. It should add the safcat schema
+    # prefix for catalogue tables and return ADQL without making a TAP request.
+    monkeypatch.setattr(eso, "query_tap", lambda *args, **kwargs: pytest.fail("unexpected TAP query"))
+
+    query = eso.query_catalog(
+        "KiDS_DR4_1_ugriZYJHKs_cat_fits",
+        columns="ID",
+        column_filters={"MAG_AUTO": "< 10"},
+        get_query_payload=True,
+    )
+
+    assert query == (
+        "select ID from safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits "
+        "where MAG_AUTO < 10"
+    )
+
+
+def test_query_catalog_help_uses_catalog_endpoint(monkeypatch):
+    eso = Eso()
+    calls = []
+
+    def fake_list_column(table_name, *, tap_endpoint):
+        calls.append((table_name, tap_endpoint))
+
+    # help=True should route through the catalogue TAP endpoint so column help
+    # describes catalogue columns rather than observation-table columns.
+    monkeypatch.setattr(eso, "_list_column", fake_list_column)
+    monkeypatch.setattr(eso, "query_tap", lambda *args, **kwargs: pytest.fail("unexpected TAP query"))
+
+    result = eso.query_catalog("KiDS_DR4_1_ugriZYJHKs_cat_fits", help=True)
+
+    assert result is None
+    assert calls == [("safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits", "tap_cat")]
