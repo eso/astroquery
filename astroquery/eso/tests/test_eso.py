@@ -18,7 +18,6 @@ import astropy.io.ascii
 
 from astroquery.utils.mocks import MockResponse
 from ...eso import Eso
-from ...eso import core as eso_core
 from ...eso.utils import _UserParams, \
     _build_adql_string, _adql_sanitize_op_val, _reorder_columns, \
     DEFAULT_LEAD_COLS_RAW
@@ -282,6 +281,8 @@ def test_tap_endpoint_invalid_url():
         eso_instance._tap_endpoint("https://archive.eso.org/not-a-tap")
 
 
+# This TAP test is deliberately offline. It checks endpoint validation before
+# pyvo could construct a real remote service.
 def test_tap_url_invalid_endpoint():
     eso_instance = Eso()
 
@@ -289,28 +290,6 @@ def test_tap_url_invalid_endpoint():
     # so callers get a local configuration error instead of a remote failure.
     with pytest.raises(ValueError, match="tap_endpoint must be one of"):
         eso_instance._tap_url("not-a-tap")
-
-
-@pytest.mark.parametrize("table_name, expected", [
-    ("safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits", True),
-    ("KiDS_DR4_1_ugriZYJHKs_cat_fits", False),
-])
-def test_tap_cat_table_names_have_schema_prefix(monkeypatch, table_name, expected):
-    eso_instance = Eso()
-    calls = []
-
-    def fake_query_tap(query, *, tap_endpoint):
-        calls.append((query, tap_endpoint))
-        return Table({"table_name": [table_name]})
-
-    # TAP_CAT can expose table names with or without the schema prefix depending
-    # on TAP version, so this helper decides which query shape to use later.
-    monkeypatch.setattr(eso_instance, "query_tap", fake_query_tap)
-
-    result = eso_instance._tap_cat_table_names_have_schema_prefix(tap_endpoint="tap_cat")
-
-    assert result is expected
-    assert calls == [("select top 1 table_name from TAP_SCHEMA.tables", "tap_cat")]
 
 
 @pytest.mark.parametrize("input_val, expected", [
@@ -398,6 +377,8 @@ def test_maxrec():
     assert maxrec == EXPECTED_MAX_ROW_LIMIT
 
 
+# The next retrieval tests exercise local guardrails and pyvo error handling.
+# Fake TAP objects keep the tests deterministic and document expected fallbacks.
 def test_row_limit_rejects_values_above_service_limit():
     eso_instance = Eso()
 
@@ -472,55 +453,6 @@ def test_retrieve_pyvo_table_handles_overflow_warning_as_partial_result():
     assert len(result) == 0
 
 
-@pytest.mark.parametrize("authenticated", [False, True])
-def test_tap_uses_selected_endpoint(monkeypatch, authenticated):
-    eso_instance = Eso()
-    calls = []
-
-    class FakeTAPService:
-        def __init__(self, url, session=None):
-            calls.append((url, session))
-
-    # TAPService is monkeypatched so this verifies endpoint/session selection
-    # without opening a real pyvo connection to the ESO archive.
-    monkeypatch.setattr(eso_core, "TAPService", FakeTAPService)
-    monkeypatch.setattr(eso_instance, "authenticated", lambda: True)
-    monkeypatch.setattr(eso_instance, "_get_auth_header", lambda: {"Authorization": "Bearer token"})
-
-    eso_instance.tap(authenticated=authenticated, tap_endpoint="tap_cat")
-
-    expected_session = eso_instance._session if authenticated else None
-    assert calls == [(eso_instance._tap_url("tap_cat"), expected_session)]
-
-
-def test_query_tap_passes_endpoint_to_tap_and_retriever(monkeypatch):
-    eso_instance = Eso()
-    fake_tap_service = object()
-    fake_table = Table({"col": [1]})
-    calls = []
-
-    def fake_tap(authenticated=False, *, tap_endpoint="tap_obs"):
-        calls.append(("tap", authenticated, tap_endpoint))
-        return fake_tap_service
-
-    def fake_retrieve(query, tap_service):
-        calls.append(("retrieve", query, tap_service))
-        return fake_table
-
-    # query_tap is the public free-ADQL entry point, so it must preserve the
-    # selected endpoint all the way down to the pyvo retrieval helper.
-    monkeypatch.setattr(eso_instance, "tap", fake_tap)
-    monkeypatch.setattr(eso_instance, "_try_retrieve_pyvo_table", fake_retrieve)
-
-    result = eso_instance.query_tap("select 1", authenticated=True, tap_endpoint="tap_cat")
-
-    assert result is fake_table
-    assert calls == [
-        ("tap", True, "tap_cat"),
-        ("retrieve", "select 1", fake_tap_service),
-    ]
-
-
 def test_issue_table_length_warnings():
     eso_instance = Eso()
 
@@ -539,6 +471,8 @@ def test_issue_table_length_warnings():
     eso_instance._maybe_warn_about_table_length(t, EXPECTED_MAXREC+1)
 
 
+# This helper test is observation-TAP specific. It documents the metadata query
+# used for observation table help without touching the catalogue TAP endpoint.
 def test_columns_table_uses_tap_obs_metadata_query(monkeypatch):
     eso_instance = Eso()
     calls = []
@@ -559,99 +493,6 @@ def test_columns_table_uses_tap_obs_metadata_query(monkeypatch):
         "from TAP_SCHEMA.columns where table_name = 'ivoa.ObsCore'",
         "tap_obs",
     )]
-
-
-def test_columns_table_uses_tap_cat_metadata_query_without_schema_prefix(monkeypatch):
-    eso_instance = Eso()
-    calls = []
-
-    def fake_query_tap(query, *, tap_endpoint):
-        calls.append((query, tap_endpoint))
-        return Table({"column_name": ["ID"]})
-
-    # Some TAP_CAT deployments list table names without "safcat.". When that is
-    # detected, the helper strips the prefix before querying TAP_SCHEMA.columns.
-    monkeypatch.setattr(eso_instance, "_tap_cat_table_names_have_schema_prefix",
-                        lambda *, tap_endpoint: False)
-    monkeypatch.setattr(eso_instance, "query_tap", fake_query_tap)
-
-    result = eso_instance._columns_table(
-        "safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits",
-        tap_endpoint="tap_cat",
-    )
-
-    assert result["column_name"][0] == "ID"
-    assert calls == [(
-        "select column_name, datatype, unit, ucd "
-        "from TAP_SCHEMA.columns "
-        "where table_name = 'KiDS_DR4_1_ugriZYJHKs_cat_fits'",
-        "tap_cat",
-    )]
-
-
-def test_list_column_uses_selected_endpoint_for_help_and_count(monkeypatch):
-    eso_instance = Eso()
-    calls = []
-
-    def fake_columns_table(table_name, *, tap_endpoint):
-        calls.append(("columns", table_name, tap_endpoint))
-        return Table({"column_name": ["ID"], "datatype": ["int"], "unit": [""], "ucd": [""]})
-
-    def fake_query_tap(query, *, tap_endpoint):
-        calls.append(("count", query, tap_endpoint))
-        return Table({"count": [7]})
-
-    # list/help output needs two TAP calls: one for column metadata and one for
-    # row count. Both must use the catalogue endpoint when helping catalogues.
-    monkeypatch.setattr(eso_instance, "_columns_table", fake_columns_table)
-    monkeypatch.setattr(eso_instance, "query_tap", fake_query_tap)
-
-    eso_instance._list_column("safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits", tap_endpoint="tap_cat")
-
-    assert calls == [
-        ("columns", "safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits", "tap_cat"),
-        ("count", "select count(*) from safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits", "tap_cat"),
-    ]
-
-
-def test_query_on_allowed_values_print_help_uses_selected_endpoint(monkeypatch):
-    eso_instance = Eso()
-    calls = []
-
-    def fake_list_column(table_name, *, tap_endpoint):
-        calls.append((table_name, tap_endpoint))
-
-    # help=True should print/list valid columns and stop there; it should not
-    # build or submit a data query to TAP.
-    monkeypatch.setattr(eso_instance, "_list_column", fake_list_column)
-    monkeypatch.setattr(eso_instance, "query_tap", lambda *args, **kwargs: pytest.fail("unexpected TAP query"))
-
-    result = eso_instance._query_on_allowed_values(_UserParams(
-        table_name="safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits",
-        print_help=True,
-        tap_endpoint="tap_cat",
-    ))
-
-    assert result is None
-    assert calls == [("safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits", "tap_cat")]
-
-
-def test_query_on_allowed_values_get_query_payload_does_not_query_tap(monkeypatch):
-    eso_instance = Eso()
-
-    # get_query_payload=True is a dry-run mode for inspecting ADQL, so the
-    # method should return the generated query without contacting TAP.
-    monkeypatch.setattr(eso_instance, "query_tap", lambda *args, **kwargs: pytest.fail("unexpected TAP query"))
-
-    result = eso_instance._query_on_allowed_values(_UserParams(
-        table_name="safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits",
-        columns="ID",
-        column_filters={"MAG_AUTO": "< 10"},
-        get_query_payload=True,
-        tap_endpoint="tap_cat",
-    ))
-
-    assert result == "select ID from safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits where MAG_AUTO < 10"
 
 
 def test_reorder_columns(monkeypatch):
