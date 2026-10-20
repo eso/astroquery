@@ -16,33 +16,44 @@ from astropy.table import Table
 from astroquery.exceptions import NoResultsWarning, MaxResultsWarning
 from astroquery.eso import Eso
 
-instrument_list = ['alpaca', 'fors1', 'fors2', 'sphere', 'vimos', 'omegacam',
-                   'hawki', 'isaac', 'naco', 'visir', 'vircam',
-                   'apex',
-                   'giraffe', 'uves', 'xshooter', 'muse', 'crires',
-                   'kmos', 'sinfoni', 'amber', 'midi', 'pionier',
-                   'gravity', 'espresso', 'wlgsu', 'matisse', 'eris',
-                   'fiat',
-                   'efosc', 'harps', 'nirps', 'sofi'
-                   ]
+instrument_list = [
+    'alpaca', 'amber', 'apex',
+    'crires',
+    'efosc', 'eris', 'espresso',
+    'fiat', 'fors1', 'fors2',
+    'giraffe', 'gravity',
+    'harps', 'hawki',
+    'isaac',
+    'kmos',
+    'matisse', 'midi', 'moons', 'moons_ext', 'muse',
+    'naco', 'nirps',
+    'omegacam',
+    'pionier',
+    'sinfoni', 'sofi', 'sphere',
+    'uves',
+    'vircam', 'vimos', 'visir',
+    'wlgsu',
+    'xshooter'
+]
 
-SGRA_SURVEYS = ['195.B-0283',
-                'ALMA',
-                'ATLASGAL',
-                'CRIRESplus',
-                'ERIS-SPIFFIER',
-                'GIRAFFE',
-                'GRAVITY',
-                'HARPS',
-                'HAWKI',
-                'KMOS',
-                'MW-BULGE-PSFPHOT',
-                'SEDIGISM',
-                'VPHASplus',
-                'VVV',
-                'VVVX',
-                'XSHOOTER'
-                ]
+SGRA_SURVEYS = [
+    '195.B-0283',
+    'ALMA',
+    'ATLASGAL',
+    'CRIRESplus',
+    'ERIS-SPIFFIER',
+    'GIRAFFE',
+    'GRAVITY',
+    'HARPS',
+    'HAWKI',
+    'KMOS',
+    'MW-BULGE-PSFPHOT',
+    'SEDIGISM',
+    'VPHASplus',
+    'VVV',
+    'VVVX',
+    'XSHOOTER'
+]
 
 ONE_RECORD_SURVEYS = [
     '109.22XS',

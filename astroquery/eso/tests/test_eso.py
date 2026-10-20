@@ -10,6 +10,7 @@ European Southern Observatory (ESO)
 import os
 import shutil
 import sys
+from types import SimpleNamespace
 
 import pytest
 import pyvo
@@ -22,6 +23,7 @@ from ...eso.utils import _UserParams, \
     _build_adql_string, _adql_sanitize_op_val, _reorder_columns, \
     DEFAULT_LEAD_COLS_RAW
 from ...exceptions import NoResultsWarning, MaxResultsWarning
+from pyvo.dal.exceptions import DALQueryError, DALFormatError
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 EXPECTED_MAXREC = 1000
@@ -665,3 +667,112 @@ def test_build_adql_string(params, expected):
     """
     query = _build_adql_string(params)
     assert query == expected, f"Expected:\n{expected}\n\nGot:\n{query}\n"
+
+@pytest.mark.parametrize('baseurl, endpoint', [
+    ('https://archive.eso.org/tap_obs', 'tap_obs'),
+    ('https://archive.eso.org/tap_cat/', 'tap_cat'),
+    ('https://example.invalid/custom_tap', 'https://example.invalid/custom_tap'),
+])
+def test_error_message_identifies_service_and_examples(baseurl, endpoint):
+    error = DALQueryError('Unknown table safcat.MISSING')
+    query = 'select * from safcat.MISSING'
+    message = Eso()._format_tap_error(query, SimpleNamespace(baseurl=baseurl), error)
+    assert f'tap_endpoint="{endpoint}"' in message
+    assert baseurl.rstrip('/') + '/examples' in message
+    assert 'Unknown table safcat.MISSING' in message
+    assert query in message
+    assert 'query_tap' not in message
+    assert 'maximum query freedom' not in message.lower()
+
+
+def test_query_error_logs_detail_without_changing_empty_result(monkeypatch):
+    error = DALQueryError('Unknown table safcat.MISSING')
+    def search(**kwargs):
+        raise error
+    tap = SimpleNamespace(baseurl='https://archive.eso.org/tap_cat', search=search)
+    messages = []
+    monkeypatch.setattr('astroquery.eso.core.log.error', messages.append)
+    with pytest.warns(NoResultsWarning):
+        result = Eso()._try_retrieve_pyvo_table('select * from safcat.MISSING', tap)
+    assert isinstance(result, Table)
+    assert len(result) == 0
+    assert len(messages) == 1
+    assert 'Unknown table safcat.MISSING' in messages[0]
+    assert 'https://archive.eso.org/tap_cat/examples' in messages[0]
+    assert 'tap_obs/examples' not in messages[0]
+
+
+@pytest.mark.parametrize('error', [DALFormatError(reason='bad format'), RuntimeError('connection failed')])
+def test_raised_errors_preserve_detail_and_exception_chain(error):
+    def search(**kwargs):
+        raise error
+    tap = SimpleNamespace(baseurl='https://archive.eso.org/tap_cat', search=search)
+    with pytest.raises(type(error)) as caught:
+        Eso()._try_retrieve_pyvo_table('select * from custom.Table', tap)
+    assert caught.value.__cause__ is error
+    assert str(error) in str(caught.value)
+    assert 'select * from custom.Table' in str(caught.value)
+    assert 'https://archive.eso.org/tap_cat/examples' in str(caught.value)
+
+
+@pytest.mark.parametrize('endpoint', ['tap_obs', 'tap_cat'])
+@pytest.mark.parametrize('failure_stage', ['search', 'to_table'])
+def test_query_tap_reports_the_selected_endpoint(monkeypatch, endpoint, failure_stage):
+    """Exercise the public entry point, including failures converting results."""
+    eso = Eso()
+    baseurl = eso._tap_url(endpoint)
+    query = 'select * from missing.Table'
+    error = DALQueryError('Unknown table missing.Table')
+    calls = []
+    messages = []
+
+    def fail():
+        raise error
+
+    def search(**kwargs):
+        if failure_stage == 'search':
+            raise error
+        return SimpleNamespace(to_table=fail)
+
+    service = SimpleNamespace(baseurl=baseurl, search=search)
+
+    def fake_tap(authenticated=False, *, tap_endpoint='tap_obs'):
+        calls.append((authenticated, tap_endpoint))
+        return service
+
+    monkeypatch.setattr(eso, 'tap', fake_tap)
+    monkeypatch.setattr('astroquery.eso.core.log.error', messages.append)
+
+    with pytest.warns(NoResultsWarning):
+        result = eso.query_tap(query, tap_endpoint=endpoint)
+
+    assert isinstance(result, Table)
+    assert len(result) == 0
+    assert calls == [(False, endpoint)]
+    assert len(messages) == 1
+    assert f'tap_endpoint="{endpoint}"' in messages[0]
+    assert baseurl + '/examples' in messages[0]
+    assert query in messages[0]
+    assert 'DALQueryError: Unknown table missing.Table' in messages[0]
+    assert 'query_tap' not in messages[0]
+
+
+def test_format_error_includes_underlying_cause():
+    error = DALFormatError(
+        cause=ValueError('Invalid XML at line 12'),
+        reason='Could not parse VOTable',
+    )
+    service = SimpleNamespace(baseurl='https://archive.eso.org/tap_cat')
+    message = Eso()._format_tap_error('select * from x', service, error)
+
+    assert 'DALFormatError: Could not parse VOTable' in message
+    assert 'Cause: Invalid XML at line 12' in message
+
+
+def test_error_without_cause_does_not_print_none():
+    error = DALFormatError(reason='Could not parse VOTable')
+    service = SimpleNamespace(baseurl='https://archive.eso.org/tap_obs')
+    message = Eso()._format_tap_error('select * from x', service, error)
+
+    assert 'Could not parse VOTable' in message
+    assert 'Cause:' not in message
