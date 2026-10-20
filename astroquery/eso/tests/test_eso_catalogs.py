@@ -498,3 +498,55 @@ def test_query_catalog_help_uses_catalog_endpoint(monkeypatch):
 
     assert result is None
     assert calls == [("safcat.KiDS_DR4_1_ugriZYJHKs_cat_fits", "tap_cat")]
+
+
+@pytest.mark.parametrize('all_versions', [False, True])
+@pytest.mark.parametrize('table_names, expected', [
+    ([
+        'safcat.VVVX_VIRAC_V2_LC',
+        'safcat.VVVX_VIRAC_V2_LC',
+        'safcat.VVVX_VIRAC_V2_REJECTED_LC',
+        'safcat.VVVX_VIRAC_V2_REJECTED_LC',
+    ], ['VVVX_VIRAC_V2_LC', 'VVVX_VIRAC_V2_REJECTED_LC']),
+    (['CAT_V1', 'CAT_V1', 'CAT_V2'], ['CAT_V1', 'CAT_V2']),
+    (['CAT_V1', 'safcat.CAT_V1', 'safcat.CAT_V2', 'CAT_V2'], ['CAT_V1', 'CAT_V2']),
+    (['CAT_B', 'CAT_A', 'CAT_B'], ['CAT_B', 'CAT_A']),
+    (['safcat.CAT_V1', 'safcat.CAT_V2'], ['CAT_V1', 'CAT_V2']),
+    ([], []),
+])
+def test_list_catalogs_returns_unique_normalized_names(monkeypatch, all_versions, table_names, expected):
+    eso = Eso()
+    eso.ROW_LIMIT = 5
+    calls = []
+
+    def fake_query_tap(query, *, tap_endpoint):
+        calls.append((query, tap_endpoint, eso.ROW_LIMIT))
+        return Table({'table_name': table_names}, dtype=['U64'])
+
+    monkeypatch.setattr(eso, 'query_tap', fake_query_tap)
+
+    assert eso.list_catalogs(all_versions=all_versions) == expected
+    assert len(calls) == 1
+    query, endpoint, row_limit = calls[0]
+    assert endpoint == 'tap_cat'
+    assert ('AND cat_id IN' in query) is (not all_versions)
+    assert query.endswith('ORDER BY table_name')
+    assert row_limit == eso_core.conf.MAX_ROW_LIMIT
+    assert eso.ROW_LIMIT == 5
+
+
+@pytest.mark.parametrize('all_versions, unique_count, duplicates', [
+    (True, 159, 2),
+    (False, 84, 12),
+])
+def test_list_catalogs_deduplicates_reported_result_sizes(monkeypatch, all_versions, unique_count, duplicates):
+    eso = Eso()
+    names = [f'safcat.CATALOG_{i:03d}' for i in range(unique_count)]
+    rows = sorted(names + names[:duplicates])
+    monkeypatch.setattr(eso, 'query_tap', lambda *args, **kwargs: Table({'table_name': rows}))
+
+    result = eso.list_catalogs(all_versions=all_versions)
+
+    assert len(rows) == unique_count + duplicates
+    assert len(result) == unique_count
+    assert result == [name.removeprefix('safcat.') for name in names]
